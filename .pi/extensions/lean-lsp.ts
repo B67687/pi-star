@@ -15,14 +15,20 @@
  *   - Compact format (<800 tokens per report)
  *   - Runs asynchronously — non-blocking
  *   - Auto-detects file type from extension
+ *   - Self-contained (no internal dependencies) — works from any location
  *
- * Benchmarked: 91.7% fix rate vs 58.3% without LSP (12-sample corpus).
+ * Parsing functions in this file are mirrored in
+ * packages/coding-agent/src/core/lsp/lsp-parsers.ts for unit testing.
+ *
+ * Benchmarked: 91.7% fix rate with LSP vs 58.3% baseline (12 samples).
  * See research/bench-lsp/ for the full benchmark.
  */
 
 import type { ExtensionAPI, ToolResultEvent } from "@b67687/pi-star-coding-agent";
 
-// ── Types ──
+// ============================================================================
+// Pure parsing functions (mirrored in lsp-parsers.ts for testing)
+// ============================================================================
 
 interface Diagnostic {
 	file: string;
@@ -32,24 +38,14 @@ interface Diagnostic {
 	severity: "error" | "warning";
 }
 
-type DiagnosticRunner = (filePath: string, pi: ExtensionAPI) => Promise<Diagnostic[]>;
-
-// ── Diagnostics runners ──
-
-const runPyright: DiagnosticRunner = async (filePath, pi) => {
-	const result = await pi.exec("pyright", ["--outputjson", filePath], {
-		timeout: 10_000,
-	});
-	if (result.code !== 0 && result.code !== 1) return []; // pyright exits 0 = no issues, 1 = errors
-
+function parsePyrightOutput(stdout: string, defaultFile: string): Diagnostic[] {
 	try {
-		const parsed = JSON.parse(result.stdout);
+		const parsed = JSON.parse(stdout);
 		const diagnostics: Diagnostic[] = [];
-
 		for (const diag of parsed.generalDiagnostics ?? []) {
 			if (diag.severity === "error") {
 				diagnostics.push({
-					file: diag.file ?? filePath,
+					file: diag.file ?? defaultFile,
 					line: diag.range?.start?.line ?? 0,
 					column: diag.range?.start?.character ?? 0,
 					message: diag.message,
@@ -61,44 +57,29 @@ const runPyright: DiagnosticRunner = async (filePath, pi) => {
 	} catch {
 		return [];
 	}
-};
+}
 
-const runTsc: DiagnosticRunner = async (filePath, pi) => {
-	const result = await pi.exec("tsc", ["--noEmit", "--pretty", "false", filePath], {
-		timeout: 15_000,
-	});
-	// tsc exits 0 = no errors, non-zero = errors
-	if (result.code === 0) return [];
-
+function parseTscOutput(stdout: string): Diagnostic[] {
 	const diagnostics: Diagnostic[] = [];
-	const lines = result.stdout.split("\n");
-
-	for (const line of lines) {
-		// Format: file.ts(line,col): error TS1234: message
-		const match = line.match(
-			/^(.+)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s+(.+)$/,
-		);
-		if (match) {
+	const TSC_RE = /^(.+)\((\d+),(\d+)\):\s*(error|warning)\s+(TS\d+):\s+(.+)$/;
+	for (const line of stdout.split("\n")) {
+		const m = line.match(TSC_RE);
+		if (m) {
 			diagnostics.push({
-				file: match[1].trim(),
-				line: parseInt(match[2]),
-				column: parseInt(match[3]),
-				message: `${match[5]}: ${match[6]}`,
-				severity: match[4] as "error" | "warning",
+				file: m[1].trim(),
+				line: parseInt(m[2]),
+				column: parseInt(m[3]),
+				message: `${m[5]}: ${m[6]}`,
+				severity: m[4] as "error" | "warning",
 			});
 		}
 	}
 	return diagnostics.filter((d) => d.severity === "error");
-};
+}
 
-const runShellcheck: DiagnosticRunner = async (filePath, pi) => {
-	const result = await pi.exec("shellcheck", ["-f", "json", filePath], {
-		timeout: 10_000,
-	});
-	if (result.code === 0) return [];
-
+function parseShellcheckOutput(stdout: string): Diagnostic[] {
 	try {
-		const parsed = JSON.parse(result.stdout) as Array<{
+		const parsed = JSON.parse(stdout) as Array<{
 			line: number;
 			column: number;
 			code: number;
@@ -106,10 +87,9 @@ const runShellcheck: DiagnosticRunner = async (filePath, pi) => {
 			level: string;
 		}>;
 		const diagnostics: Diagnostic[] = [];
-
 		for (const entry of parsed ?? []) {
 			diagnostics.push({
-				file: filePath,
+				file: "",
 				line: entry.line ?? 0,
 				column: entry.column ?? 0,
 				message: `SC${entry.code}: ${entry.message}`,
@@ -120,73 +100,78 @@ const runShellcheck: DiagnosticRunner = async (filePath, pi) => {
 	} catch {
 		return [];
 	}
-};
-
-// ── File type detection ──
-
-function detectRunner(filePath: string): DiagnosticRunner | null {
-	if (filePath.endsWith(".py")) return runPyright;
-	if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) return runTsc;
-	if (filePath.endsWith(".sh") || filePath.endsWith(".bash")) return runShellcheck;
-	return null;
 }
-
-// ── Formatting ──
 
 function formatDiagnostics(diagnostics: Diagnostic[]): string {
 	if (diagnostics.length === 0) return "";
-
-	const lines: string[] = [];
-	lines.push("── LSP diagnostics ──");
-
+	const lines: string[] = ["── LSP diagnostics ──"];
 	for (const d of diagnostics) {
-		const fileShort = d.file.split("/").pop() ?? d.file;
-		lines.push(`  ${fileShort}:${d.line}:${d.column}  ${d.message}`);
+		const f = d.file.split("/").pop() ?? d.file;
+		lines.push(`  ${f}:${d.line}:${d.column}  ${d.message}`);
 	}
-
-	// Cap at ~800 tokens = ~600 words ≈ 35 lines
 	if (lines.length > 35) {
-		const remaining = diagnostics.length - (35 - 2);
+		const r = diagnostics.length - (35 - 2);
 		lines.length = 35;
-		lines.push(`  ... and ${remaining} more diagnostic(s)`);
+		lines.push(`  ... and ${r} more diagnostic(s)`);
 	}
-
 	return lines.join("\n");
 }
 
-// ── Extension entry point ──
+function detectRunner(filePath: string): "pyright" | "tsc" | "shellcheck" | null {
+	if (filePath.endsWith(".py")) return "pyright";
+	if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) return "tsc";
+	if (filePath.endsWith(".sh") || filePath.endsWith(".bash")) return "shellcheck";
+	return null;
+}
+
+// ============================================================================
+// IO layer (pi.exec)
+// ============================================================================
+
+async function runPyright(filePath: string, pi: ExtensionAPI) {
+	const r = await pi.exec("pyright", ["--outputjson", filePath], { timeout: 10_000 });
+	if (r.code !== 0 && r.code !== 1) return [];
+	return parsePyrightOutput(r.stdout, filePath);
+}
+
+async function runTsc(filePath: string, pi: ExtensionAPI) {
+	const r = await pi.exec("tsc", ["--noEmit", "--pretty", "false", filePath], { timeout: 15_000 });
+	if (r.code === 0) return [];
+	return parseTscOutput(r.stdout);
+}
+
+async function runShellcheck(filePath: string, pi: ExtensionAPI) {
+	const r = await pi.exec("shellcheck", ["-f", "json", filePath], { timeout: 10_000 });
+	if (r.code === 0) return [];
+	return parseShellcheckOutput(r.stdout);
+}
+
+// ============================================================================
+// Extension entry point
+// ============================================================================
 
 export default function leanLspExtension(pi: ExtensionAPI) {
 	pi.on("tool_result", async (event: ToolResultEvent) => {
-		// Only run on edit and write tools (file-modifying operations)
-		if (event.toolName !== "edit" && event.toolName !== "write") {
-			return;
-		}
+		if (event.toolName !== "edit" && event.toolName !== "write") return;
 
-		// Extract file path from tool input
-		const input = event.input ?? {};
-		const filePath = (input.filePath as string) ?? (input.path as string) ?? "";
+		const filePath = (event.input?.filePath as string) ?? (event.input?.path as string) ?? "";
 		if (!filePath) return;
 
-		// Detect which runner to use
 		const runner = detectRunner(filePath);
 		if (!runner) return;
 
-		// Run diagnostics
-		const diagnostics = await runner(filePath, pi);
-		if (diagnostics.length === 0) return;
+		const diagnostics =
+			runner === "pyright"
+				? await runPyright(filePath, pi)
+				: runner === "tsc"
+					? await runTsc(filePath, pi)
+					: await runShellcheck(filePath, pi);
 
-		// Format and inject into tool result
-		const lspReport = formatDiagnostics(diagnostics);
-		if (!lspReport) return;
+		if (!diagnostics?.length) return;
 
-		return {
-			content: [
-				{
-					type: "text",
-					text: `\n${lspReport}`,
-				},
-			],
-		};
+		const report = formatDiagnostics(diagnostics);
+		if (!report) return;
+
+		return { content: [{ type: "text", text: `\n${report}` }] };
 	});
 }

@@ -1,0 +1,104 @@
+{
+  "title": "LSP Benchmark — Research corpus",
+  "description": "Code samples with seeded bugs. Each sample has a buggy version and a fix version.",
+  "samples": [
+    {
+      "id": "s01",
+      "file": "py/s01-type-mismatch-bug.py",
+      "language": "python",
+      "bug_type": "type_mismatch",
+      "lsp_should_catch": true,
+      "description": "Function expects int, caller passes str"
+    },
+    {
+      "id": "s02",
+      "file": "py/s02-undefined-var-bug.py",
+      "language": "python",
+      "bug_type": "undefined_variable",
+      "lsp_should_catch": true,
+      "description": "Variable name misspelled"
+    },
+    {
+      "id": "s03",
+      "file": "py/s03-off-by-one-bug.py",
+      "language": "python",
+      "bug_type": "off_by_one",
+      "lsp_should_catch": false,
+      "description": "range(1, limit) excludes limit"
+    },
+    {
+      "id": "s04",
+      "file": "py/s04-null-check-bug.py",
+      "language": "python",
+      "bug_type": "missing_null_check",
+      "lsp_should_catch": false,
+      "description": "Optional return used without None check"
+    },
+    {
+      "id": "s05",
+      "file": "py/s05-import-error-bug.py",
+      "language": "python",
+      "bug_type": "wrong_import",
+      "lsp_should_catch": true,
+      "description": "json.load used instead of json.loads"
+    },
+    {
+      "id": "s06",
+      "file": "ts/s06-missing-await-bug.ts",
+      "language": "typescript",
+      "bug_type": "missing_await",
+      "lsp_should_catch": true,
+      "description": "Async called without await. tsc catches in strict mode"
+    },
+    {
+      "id": "s07",
+      "file": "py/s07-unused-import-bug.py",
+      "language": "python",
+      "bug_type": "unused_import",
+      "lsp_should_catch": true,
+      "description": "Unused import + get_env never called"
+    },
+    {
+      "id": "s08",
+      "file": "py/s08-dict-get-bug.py",
+      "language": "python",
+      "bug_type": "dict_get_no_reassign",
+      "lsp_should_catch": false,
+      "description": ".get() returns new list, append doesn't update dict"
+    },
+    {
+      "id": "s09",
+      "file": "ts/s09-return-type-bug.ts",
+      "language": "typescript",
+      "bug_type": "excess_return_property",
+      "lsp_should_catch": true,
+      "description": "Return object has extra property not in type"
+    },
+    {
+      "id": "s10",
+      "file": "sh/s10-unquoted-var-bug.sh",
+      "language": "shell",
+      "bug_type": "unquoted_variable",
+      "lsp_should_catch": true,
+      "description": "Unquoted variable expansion. ShellCheck SC2086"
+    },
+    {
+      "id": "s11",
+      "file": "py/s11-broad-except-bug.py",
+      "language": "python",
+      "bug_type": "broad_exception",
+      "lsp_should_catch": false,
+      "description": "Catching too-broad Exception instead of specific types"
+    },
+    {
+      "id": "s12",
+      "file": "py/s12-mutation-while-iterating-bug.py",
+      "language": "python",
+      "bug_type": "mutation_during_iteration",
+      "lsp_should_catch": false,
+      "description": "Mutating list while iterating — skips elements"
+    }
+  ],
+  "results_baseline": null,
+  "results_with_lsp": null
+}

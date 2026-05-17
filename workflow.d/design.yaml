@@ -1,0 +1,33 @@
+# Design workflow — shared understanding before implementation
+# Outputs a compact design discussion (~200 lines), not a detailed plan.
+
+id: design
+description: Align with user on what to build before writing code
+next: workflow/implement.yaml
+
+steps:
+  - id: current_state
+    kind: deterministic
+    script: scripts/workflow/map-current-state.sh
+    description: Map the current codebase state relevant to the task
+
+  - id: design_discussion
+    kind: deliberative
+    description: |
+      Synthesize findings into a compact design document covering:
+      - Current state and desired end state
+      - Patterns to follow (and which NOT to follow)
+      - Resolved design decisions
+      - Open questions and unknowns
+      Propose, get feedback, refine until consensus.
+      Target: ~200 lines, not a thousand-line plan.
+
+  - id: structure_outline
+    kind: deliberative
+    description: |
+      Outline the implementation phases at a high level:
+      - Order of changes (vertical slices, not horizontal layers)
+      - How to test at each checkpoint
+      - Key types/signatures that will change
+      Think "header files, not implementation."
+      Back and forth until user approves the structure.

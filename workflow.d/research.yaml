@@ -1,0 +1,29 @@
+# Research workflow — objective codebase investigation
+# 1. Formulate objective questions (deliberative)
+# 2. Execute research against codebase (deterministic)
+# 3. Review findings with user (deliberative)
+
+id: research
+description: Investigate the codebase objectively
+next: workflow/design.yaml
+
+steps:
+  - id: formulate_questions
+    kind: deliberative
+    description: |
+      Propose 3-5 objective questions about the codebase.
+      Questions must be factual — no opinions, no solution assumptions.
+      Example: "How does module X handle auth?" not "Should we rewrite auth?"
+      Back and forth with user until consensus on the question set.
+
+  - id: gather_facts
+    kind: deterministic
+    script: scripts/workflow/gather-facts.sh
+    description: Execute each question against the codebase using search, grep, glob, read
+
+  - id: review_findings
+    kind: deliberative
+    description: |
+      Present compressed findings. No opinions, no proposed solutions.
+      Ask: "Is anything missing? Should we investigate further?"
+      If more needed, user can choose to loop back or advance.

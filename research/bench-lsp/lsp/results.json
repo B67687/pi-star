@@ -1,0 +1,107 @@
+{
+  "samples": [
+    {
+      "id": "s01",
+      "fixed": 1,
+      "turns": 1,
+      "tokens": "97",
+      "elapsed_sec": 13.643708721,
+      "note": "Passed LSP on first turn"
+    },
+    {
+      "id": "s02",
+      "fixed": 1,
+      "turns": 1,
+      "tokens": "64",
+      "elapsed_sec": 8.813189241,
+      "note": "Passed LSP on first turn"
+    },
+    {
+      "id": "s03",
+      "fixed": 1,
+      "turns": 1,
+      "tokens": "112",
+      "elapsed_sec": 13.168190438,
+      "note": "Passed LSP on first turn"
+    },
+    {
+      "id": "s04",
+      "fixed": 1,
+      "turns": 1,
+      "tokens": "110",
+      "elapsed_sec": 11.627060026,
+      "note": "Passed LSP on first turn"
+    },
+    {
+      "id": "s05",
+      "fixed": 1,
+      "turns": 1,
+      "tokens": "134",
+      "elapsed_sec": 12.177092247,
+      "note": "Passed LSP on first turn"
+    },
+    {
+      "id": "s06",
+      "fixed": 1,
+      "turns": 1,
+      "tokens": "80",
+      "elapsed_sec": 11.750191144,
+      "note": "LSP caught errors on Turn 1"
+    },
+    {
+      "id": "s07",
+      "fixed": 1,
+      "turns": 1,
+      "tokens": "36",
+      "elapsed_sec": 6.13984135,
+      "note": "Passed LSP on first turn"
+    },
+    {
+      "id": "s08",
+      "fixed": 1,
+      "turns": 1,
+      "tokens": "116",
+      "elapsed_sec": 12.803581961,
+      "note": "Passed LSP on first turn"
+    },
+    {
+      "id": "s09",
+      "fixed": 0,
+      "turns": 1,
+      "tokens": "149",
+      "elapsed_sec": 12.015937496,
+      "note": "LSP caught errors on Turn 1"
+    },
+    {
+      "id": "s10",
+      "fixed": 1,
+      "turns": 1,
+      "tokens": "132",
+      "elapsed_sec": 27.985093462,
+      "note": "Passed LSP on first turn"
+    },
+    {
+      "id": "s11",
+      "fixed": 1,
+      "turns": 1,
+      "tokens": "72",
+      "elapsed_sec": 10.372880616,
+      "note": "Passed LSP on first turn"
+    },
+    {
+      "id": "s12",
+      "fixed": 1,
+      "turns": 1,
+      "tokens": "86",
+      "elapsed_sec": 9.899162947,
+      "note": "Passed LSP on first turn"
+    }
+  ],
+  "timestamp": "2026-05-17T07:37:36Z",
+  "summary": {
+    "total": 12,
+    "fixed": 11,
+    "failed": 1,
+    "pct": 91.7
+  }
+}

@@ -1,0 +1,24 @@
+# Review workflow — code review focused on correctness and alignment
+# Lightweight: no design phase, direct to assess quality.
+
+id: review
+description: Review code changes for correctness, edge cases, and design alignment
+
+steps:
+  - id: collect_context
+    kind: deterministic
+    script: scripts/workflow/review-diff.sh
+    description: Collect diff, changed files, and relevant context
+
+  - id: assess_quality
+    kind: deliberative
+    description: |
+      Review the diff for correctness. **Read the actual diff (`git diff`), not plan documents.**
+      - Is the change correct (judged from code, not design docs)?
+      - Are there edge cases or error paths not handled?
+      - Test coverage adequate?
+      - Any security concerns?
+      Propose findings. Back and forth until consensus.
+    branches:
+      approved: ~
+      needs_fixes: workflow/implement.yaml

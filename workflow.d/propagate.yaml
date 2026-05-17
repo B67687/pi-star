@@ -1,0 +1,39 @@
+# Propagate workflow — sync templates to topic repos
+# Wraps propagate-to-all.sh with deliberative steps for user alignment.
+
+id: propagate
+description: Sync managed-core templates to topic repos
+
+steps:
+  - id: select_targets
+    kind: deliberative
+    description: |
+      Choose propagation scope:
+      - All 18 repos (default)
+      - Single repo: --folder PATH
+      - Preview only (dry run, no writes)
+      Propose scope. User confirms or adjusts.
+
+  - id: preview_changes
+    kind: deterministic
+    script: scripts/propagate-to-all.sh --preview
+    description: Run dry run to show what would change
+
+  - id: review_preview
+    kind: deliberative
+    description: |
+      Show the preview output. Ask:
+      - "Does this look right?"
+      - "Any repos to exclude?"
+      - "Apply now?"
+      Consensus → apply or cancel.
+
+  - id: apply_changes
+    kind: deterministic
+    script: scripts/propagate-to-all.sh --apply
+    description: Apply the propagation (writes template files to target repos)
+
+  - id: verify_sync
+    kind: deterministic
+    script: scripts/check-sync-status.sh
+    description: Verify all propagated files are in sync

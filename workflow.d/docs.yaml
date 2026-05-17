@@ -1,0 +1,22 @@
+# Docs workflow — documentation changes, lighter than feature work
+# Skips design phase — just research what exists, then write.
+
+id: docs
+description: Create or update documentation
+
+steps:
+  - id: research_existing
+    kind: deliberative
+    description: |
+      Find existing docs on the topic. Check:
+      - What already exists?
+      - What format/style does the project use?
+      - Where does the new doc belong?
+      Propose scope. Back and forth until clear.
+
+  - id: write_doc
+    kind: deliberative
+    description: |
+      Write or update the documentation.
+      Show the output. Ask for feedback.
+      Iterate until approved.

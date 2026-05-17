@@ -1,0 +1,28 @@
+# Debug workflow — diagnose and fix bugs
+
+id: debug
+description: Investigate and fix bugs
+
+steps:
+  - id: reproduce
+    kind: deliberative
+    description: |
+      Understand the bug:
+      - What's the expected behavior?
+      - What's the actual behavior?
+      - What are the steps to reproduce?
+      Back and forth until the bug is clearly scoped.
+
+  - id: diagnose
+    kind: deterministic
+    script: scripts/workflow/diagnose.sh
+    description: Search codebase for the root cause — grep error messages, trace call paths
+
+  - id: propose_fix
+    kind: deliberative
+    description: |
+      Present the root cause and proposed fix.
+      Back and forth until consensus.
+    branches:
+      approved: workflow/implement.yaml
+      needs_more_investigation: diagnose

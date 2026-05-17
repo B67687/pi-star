@@ -1,0 +1,35 @@
+# Refactor workflow — restructure without changing behavior
+# Design-heavy: understand the current structure, agree on target, then implement.
+
+id: refactor
+description: Restructure code without changing external behavior
+
+steps:
+  - id: map_current
+    kind: deterministic
+    script: scripts/workflow/map-current-state.sh
+    description: Map current codebase structure, identify the refactoring target
+
+  - id: design_target
+    kind: deliberative
+    description: |
+      Propose the target structure:
+      - What stays, what moves, what changes
+      - Migration path (how to avoid breaking changes)
+      - Test strategy to verify no behavior change
+      Back and forth until consensus.
+
+  - id: execute_refactor
+    kind: deliberative
+    description: |
+      Implement one slice at a time. After each:
+      - Verify tests still pass (no behavior change)
+      - Show the **actual diff** (`git diff`), not a summary
+      - Run the real command or scenario (not just unit tests)
+      - Ask: "Ready for next slice?"
+      Loop until all slices done.
+
+  - id: final_verify
+    kind: deterministic
+    script: scripts/workflow/final-verify.sh
+    description: Run full test suite to verify no behavior change

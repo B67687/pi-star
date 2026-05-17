@@ -1,0 +1,30 @@
+# Implement workflow — execute verified slices of work
+
+id: implement
+description: Execute implementation one vertical slice at a time
+next: workflow/verify.yaml
+
+steps:
+  - id: slice_scope
+    kind: deliberative
+    description: |
+      Break the task into vertical slices. Each slice should:
+      - Touch all layers (DB → service → API → frontend where applicable)
+      - Be independently testable
+      - Produce a working increment
+      Propose the slice order. Back and forth until consensus.
+
+  - id: execute_slice
+    kind: deliberative
+    description: |
+      Implement the current slice. After each edit:
+      - Show the **actual diff** (`git diff`), not a summary or plan
+      - Test with real-world inputs first — run the actual command, hit the real endpoint, reproduce the scenario with realistic data
+      - Save checkpoint
+      Engage back and forth until user says "Ready for next slice"
+      Loop until all slices are done.
+
+  - id: final_verify
+    kind: deterministic
+    script: scripts/workflow/final-verify.sh
+    description: Run tests, lint, and type check. Test with real-world inputs before hypotheticals.

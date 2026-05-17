@@ -1,0 +1,18 @@
+# Root workflow — entry point for all requests
+# The agent reads this at session start if no workflow is active.
+
+id: root
+description: Classify incoming requests and route to the right workflow
+
+steps:
+  - id: classify
+    kind: deliberative
+    description: Classify the request into a workflow
+    branches:
+      research: workflow/research.yaml
+      design: workflow/design.yaml
+      implement: workflow/implement.yaml
+      verify: workflow/verify.yaml
+      propagate: workflow/propagate.yaml
+      question: ~           # handle inline — just answer
+      debug: workflow/debug.yaml

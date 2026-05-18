@@ -249,18 +249,21 @@ Every repo under `~/projects/dev/` has these configs:
 5. **Pre-existing tsc integration test failure**: Not related to our changes. Test file doesn't trigger type error with project's tsconfig.
 6. **First `cargo check` is slow**: Full build takes 30-120s. Incremental builds <0.1s. LSP uses 60s timeout with graceful degradation.
 
-## Extension Suite (6 Active)
+## Extension Suite (7 Active)
 
-All auto-discovered from `.pi/extensions/` or `~/.pi/agent/extensions/`:
+All auto-discovered from `.pi/extensions/`:
+> **Note**: Global copies in `~/.pi/agent/extensions/` were removed to avoid
+> tool-name conflicts. Local `.pi/extensions/` is the source of truth.
 
 | Extension | Lines | What |
 |-----------|-------|------|
+| `governance-layer.ts` | ~420 | **NEW** Layer 3: phase gates, constitution checks, propagation sync |
 | `lean-lsp.ts` | ~230 | LSP for Python/TS/Shell/Go/Rust — errors-only, <800 tokens |
 | `cost-router.ts` | ~120 | `/route code` → pro, `/route research` → flash |
 | `sequential-thinking.ts` | ~320 | MCP structured reasoning tool (via server subprocess) |
 | `git-safe.ts` | ~450 | Auto-commit hook + git-ops tool + prune + auto-prune |
 | `prompt-url-widget.ts` | ~130 | URL display widget |
-| `workflow-guard.ts` | ~150 | Methodology enforcement |
+| `workflow-guard.ts` | ~150 | Safety guard (dangerous commands, protected paths) |
 | `tps.ts`, `redraws.ts` | ~2K | Performance monitors |
 
 ## Pipelines to Close
@@ -270,8 +273,9 @@ All auto-discovered from `.pi/extensions/` or `~/.pi/agent/extensions/`:
 | G1.1 → G1.2 | ✅→**⏳ ACTIVE** | Use pi-star for daily work |
 | G1.2 → G1.3 | ⏳ | Surface pain points from daily use |
 | G2 (all) | ✅ | All 3 experiments + extensions shipped |
-| G3.1 | ⬜ | Feature parity audit (git integration is a known gap, now partially solved) |
+| G3.1 | ⬜ | Feature parity audit |
 | G3.2 | ⬜ | Move agentic-workflows dev into pi-star |
+| G3.3 | **✅→⏳ ACTIVE** | Use pi-star to build pi-star — started with governance layer |
 
 ## Commands to Continue
 

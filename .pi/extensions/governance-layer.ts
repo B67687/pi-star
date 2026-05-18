@@ -45,6 +45,31 @@ interface GovernanceState {
 
 type GateResult = { pass: boolean; reason: string };
 
+// ── Milestone ladder types ──
+
+interface MilestoneItem {
+	id: number;
+	name: string;
+	deliverable: string;
+	acceptance_criteria: string;
+}
+
+interface MilestoneLadder {
+	task: string;
+	generated_at: number;
+	milestones: MilestoneItem[];
+	first_slice: {
+		target: string;
+		scope: string;
+		files: string[];
+		verification: string;
+	};
+	out_of_scope: string[];
+	verification_target: string;
+}
+
+const MILESTONE_LADDER_FILE = join(STATE_DIR, "milestone-ladder.json");
+
 // ============================================================================
 // Phase state machine
 // ============================================================================
@@ -214,6 +239,110 @@ function saveState(state: GovernanceState): void {
 }
 
 // ============================================================================
+// Milestone ladder management
+// ============================================================================
+
+function loadMilestoneLadder(): MilestoneLadder | null {
+	try {
+		if (existsSync(MILESTONE_LADDER_FILE)) {
+			return JSON.parse(readFileSync(MILESTONE_LADDER_FILE, "utf-8")) as MilestoneLadder;
+		}
+	} catch {
+		// Corrupted — treat as missing
+	}
+	return null;
+}
+
+function saveMilestoneLadder(ladder: MilestoneLadder): void {
+	ensureStateDir();
+	writeFileSync(MILESTONE_LADDER_FILE, JSON.stringify(ladder, null, 2), "utf-8");
+}
+
+function validateMilestoneLadder(ladder: MilestoneLadder): { valid: boolean; errors: string[]; warnings: string[] } {
+	const errors: string[] = [];
+	const warnings: string[] = [];
+
+	if (!ladder.milestones || ladder.milestones.length < 2) {
+		errors.push(`Too few milestones: ${ladder.milestones?.length ?? 0} (min 2)`);
+	}
+	if (ladder.milestones && ladder.milestones.length > 5) {
+		warnings.push(`Too many milestones: ${ladder.milestones.length} (max 5)`);
+	}
+	for (const m of ladder.milestones || []) {
+		if (!m.name || !m.deliverable || !m.acceptance_criteria) {
+			errors.push(`Milestone ${m.id ?? "?"} missing required fields (name, deliverable, acceptance_criteria)`);
+		}
+	}
+	const fs = ladder.first_slice;
+	if (!fs?.target || !fs?.scope || !fs?.verification) {
+		errors.push("first_slice missing required fields (target, scope, verification)");
+	}
+	if (!ladder.out_of_scope || ladder.out_of_scope.length === 0) {
+		warnings.push("out_of_scope is empty — add items explicitly excluded");
+	}
+	if (!ladder.verification_target || ladder.verification_target.length < 10) {
+		warnings.push("verification_target is missing or too short");
+	}
+	return { valid: errors.length === 0, errors, warnings };
+}
+
+function generateMilestoneLadderTemplate(task: string): MilestoneLadder {
+	return {
+		task,
+		generated_at: Date.now(),
+		milestones: [
+			{
+				id: 1,
+				name: "Research and discovery",
+				deliverable: "Understand the system, identify files, map dependencies",
+				acceptance_criteria: "Relevant source files identified, dependency graph mapped, risks documented",
+			},
+			{
+				id: 2,
+				name: "Plan and design",
+				deliverable: "Detailed implementation approach with scope boundaries",
+				acceptance_criteria: "Design decisions made, interfaces defined, out-of-scope documented",
+			},
+			{
+				id: 3,
+				name: "Core implementation (first slice)",
+				deliverable: "Working implementation of the core change",
+				acceptance_criteria: "Implementation passes verification, tests pass",
+			},
+		],
+		first_slice: {
+			target: "First milestone deliverable",
+			scope: "What this slice covers",
+			files: [],
+			verification: "How to verify this slice works",
+		},
+		out_of_scope: ["Items explicitly excluded from this task"],
+		verification_target: "Overall acceptance criteria for the complete task",
+	};
+}
+
+function milestoneLadderToDisplay(ladder: MilestoneLadder): string {
+	const lines: string[] = [`Task: ${ladder.task}`, ""];
+	for (const m of ladder.milestones) {
+		lines.push(`  [${m.id}] ${m.name}`);
+		lines.push(`       Deliverable: ${m.deliverable}`);
+		lines.push(`       Accept: ${m.acceptance_criteria}`);
+		lines.push("");
+	}
+	const fs = ladder.first_slice;
+	lines.push(`  First slice: ${fs.target}`);
+	lines.push(`    Scope:  ${fs.scope}`);
+	lines.push(`    Verify: ${fs.verification}`);
+	if (fs.files && fs.files.length > 0) {
+		lines.push(`    Files: ${fs.files.join(", ")}`);
+	}
+	lines.push("");
+	lines.push(`  Out of scope: ${ladder.out_of_scope.join(", ") || "(none)"}`);
+	lines.push(`  Verification target: ${ladder.verification_target}`);
+	return lines.join("\n");
+}
+
+// ============================================================================
 // Methodology system prompt
 // ============================================================================
 
@@ -238,10 +367,15 @@ research → plan → implement → verify phase discipline.
 - \`/constitution check\` — run constitutional article gates
 - \`/constitution\` — list constitutional articles with status
 - \`/methodology\` — show this guide
+- \`/milestone-ladder init <desc>\` — create a milestone ladder artifact
+- \`/milestone-ladder validate\` — check milestone ladder completeness
+- \`/milestone-ladder show\` — display the milestone ladder
 
 ### Enforcement
 - Edits in research or plan phases are **blocked**. Use \`set-phase\` to transition.
 - Phase transitions are blocked if prerequisites are not met.
+- **Decomposition gate**: transitioning from plan→implement requires a valid milestone ladder.
+  Document your decomposition with \`/milestone-ladder init\` before calling \`set-phase implement\`.
 - After implementation, verification is required before new work.
 - The initial phase is auto-detected from your task description.`;
 
@@ -316,6 +450,39 @@ const SET_PHASE_TOOL = {
 				details: { error: msg, currentPhase: state.currentPhase, allowedTransitions: allowed },
 				isError: true,
 			};
+		}
+
+		// Decomposition enforcement: plan → implement requires a milestone ladder
+		if (state.currentPhase === "plan" && target === "implement") {
+			const ladder = loadMilestoneLadder();
+			if (!ladder) {
+				const msg = `🧱 Decomposition gate BLOCKED: No milestone ladder found. Before implementing, document your decomposition:
+
+  /milestone-ladder init "<task description>"
+  # Then edit ~/.pi/runtime/milestone-ladder.json
+  /milestone-ladder validate
+
+The milestone ladder must define milestones (2-5), first_slice, out_of_scope, and a verification target.`;
+				return {
+					content: [{ type: "text", text: msg }],
+					details: { error: "milestone ladder missing", currentPhase: state.currentPhase },
+					isError: true,
+				};
+			}
+			const validation = validateMilestoneLadder(ladder);
+			if (!validation.valid) {
+				const msg = `🧱 Decomposition gate BLOCKED: Milestone ladder is incomplete.
+
+${validation.errors.map((e) => `  ✗ ${e}`).join("\n")}
+${validation.warnings.map((w) => `  ⚠ ${w}`).join("\n")}
+
+Fix the issues, then /milestone-ladder validate and retry set-phase implement.`;
+				return {
+					content: [{ type: "text", text: msg }],
+					details: { error: "milestone ladder invalid", validation },
+					isError: true,
+				};
+			}
 		}
 
 		state.history.push({ phase: target, timestamp: Date.now(), summary: "" });
@@ -504,6 +671,98 @@ export default function governanceLayerExtension(pi: ExtensionAPI) {
 		description: "Check methodology file drift with agentic-workflows",
 		handler: async (ctx: ExtensionCommandContext) => {
 			checkPropagation(ctx);
+		},
+	});
+
+	pi.registerCommand("milestone-ladder", {
+		description:
+			"Manage the milestone ladder for decomposition enforcement. " +
+			"Usage: /milestone-ladder init <description> | show | validate",
+		handler: async (ctx: ExtensionCommandContext) => {
+			const args = (ctx as any).args as string[] | undefined;
+			const subcommand = args?.[0];
+
+			if (!subcommand || subcommand === "help") {
+				notify(
+					ctx,
+					[
+						"Milestone Ladder — document your decomposition before implementation",
+						"",
+						"  /milestone-ladder init <task description> — create a template",
+						"  /milestone-ladder show                  — display current ladder",
+						"  /milestone-ladder validate               — check ladder is valid",
+						"",
+						"The set-phase tool requires a valid milestone ladder before plan→implement.",
+					].join("\n"),
+					"info",
+				);
+				return;
+			}
+
+			if (subcommand === "init") {
+				const taskDesc = args?.slice(1).join(" ").trim() || "Unnamed task";
+				const ladder = generateMilestoneLadderTemplate(taskDesc);
+				saveMilestoneLadder(ladder);
+				const msg = [
+					`✅ Created milestone ladder for: "${taskDesc.slice(0, 100)}"`,
+					`  File: ${MILESTONE_LADDER_FILE}`,
+					"",
+					"  Edit the file to match your task:",
+					"    1. Set milestones (2-5) with name, deliverable, acceptance_criteria",
+					"    2. Fill in first_slice target, scope, files, verification",
+					"    3. List out_of_scope items",
+					"    4. Define verification_target",
+					"",
+					"  Then validate: /milestone-ladder validate",
+				].join("\n");
+				notify(ctx, msg, "info");
+				return;
+			}
+
+			if (subcommand === "validate") {
+				const ladder = loadMilestoneLadder();
+				if (!ladder) {
+					notify(
+						ctx,
+						"No milestone ladder found. Run: /milestone-ladder init \"<task description>\"",
+						"warning",
+					);
+					return;
+				}
+				const result = validateMilestoneLadder(ladder);
+				const lines: string[] = [`Milestone ladder: ${ladder.milestones.length} milestones`];
+				for (const e of result.errors) {
+					lines.push(`  ✗ ${e}`);
+				}
+				for (const w of result.warnings) {
+					lines.push(`  ⚠ ${w}`);
+				}
+				if (result.valid) {
+					lines.push("");
+					lines.push("✅ Milestone ladder is valid.");
+				} else {
+					lines.push("");
+					lines.push("❌ Fix errors above, then validate again.");
+				}
+				notify(ctx, lines.join("\n"), result.valid ? "info" : "warning");
+				return;
+			}
+
+			if (subcommand === "show") {
+				const ladder = loadMilestoneLadder();
+				if (!ladder) {
+					notify(
+						ctx,
+						"No milestone ladder found. Run: /milestone-ladder init \"<task description>\"",
+						"warning",
+					);
+					return;
+				}
+				notify(ctx, milestoneLadderToDisplay(ladder), "info");
+				return;
+			}
+
+			notify(ctx, `Unknown subcommand: ${subcommand}. Use: init, show, validate`, "warning");
 		},
 	});
 

@@ -213,7 +213,28 @@ interface MilestoneLadder {
 	verification_target: string;
 }
 
+// ── Goal tree types ──
+
+interface GoalNode {
+	id: string;
+	parent: string | null;
+	title: string;
+	status: "active" | "done" | "cancelled" | "blocked";
+	phase: string;
+	depth: number;
+	children: string[];
+	created_at: number;
+	closed_at: number | null;
+}
+
+interface GoalTree {
+	nodes: Record<string, GoalNode>;
+	root: string | null;
+	active: string | null;
+}
+
 const MILESTONE_LADDER_FILE = join(STATE_DIR, "milestone-ladder.json");
+const GOAL_TREE_FILE = join(STATE_DIR, "goal-tree.json");
 
 function ensureStateDir(): void {
 	if (!existsSync(STATE_DIR)) {
@@ -339,6 +360,69 @@ function milestoneLadderToDisplay(ladder: MilestoneLadder): string {
 	lines.push("");
 	lines.push(`  Out of scope: ${ladder.out_of_scope.join(", ") || "(none)"}`);
 	lines.push(`  Verification target: ${ladder.verification_target}`);
+	return lines.join("\n");
+}
+
+// ── Goal tree helpers ──
+
+function loadGoalTree(): GoalTree | null {
+	try {
+		if (existsSync(GOAL_TREE_FILE)) {
+			return JSON.parse(readFileSync(GOAL_TREE_FILE, "utf-8")) as GoalTree;
+		}
+	} catch {
+		// Corrupted — treat as empty
+	}
+	return null;
+}
+
+function saveGoalTree(tree: GoalTree): void {
+	ensureStateDir();
+	writeFileSync(GOAL_TREE_FILE, JSON.stringify(tree, null, 2), "utf-8");
+}
+
+function buildGoalTreePath(tree: GoalTree, nodeId: string): string[] {
+	const path: string[] = [];
+	let cur: string | null = nodeId;
+	while (cur && tree.nodes[cur]) {
+		path.unshift(tree.nodes[cur].title);
+		cur = tree.nodes[cur].parent;
+	}
+	return path;
+}
+
+function goalTreeStatus(tree: GoalTree): string {
+	const lines: string[] = [];
+	const activeId = tree.active;
+	const rootId = tree.root;
+
+	if (!rootId || !tree.nodes[rootId]) {
+		return "  (empty tree)";
+	}
+
+	function printNode(nid: string, indent: number): void {
+		if (!tree.nodes[nid]) return;
+		const n = tree.nodes[nid];
+		const statusIcon: Record<string, string> = { active: "○", done: "✓", cancelled: "✗", blocked: "⊘" };
+		const icon = statusIcon[n.status] || "?";
+		const marker = nid === activeId ? "→" : " ";
+		const suffix = n.status !== "active" ? ` (${n.status})` : "";
+		const depthTag = n.depth > 0 ? ` [d:${n.depth}]` : "";
+		lines.push(`${"  ".repeat(indent)}${marker} ${icon} ${n.title}${suffix}${depthTag}`);
+		for (const child of n.children) {
+			printNode(child, indent + 1);
+		}
+	}
+
+	printNode(rootId, 0);
+	lines.push("");
+
+	if (activeId && tree.nodes[activeId]) {
+		const path = buildGoalTreePath(tree, activeId);
+		lines.push(`  Active: ${tree.nodes[activeId].title}`);
+		lines.push(`  Path:   ${path.join(" → ")}`);
+	}
+
 	return lines.join("\n");
 }
 
@@ -866,6 +950,177 @@ export default function governanceLayerExtension(pi: ExtensionAPI) {
 			}
 
 			notify(ctx, `Unknown subcommand: ${subcommand}. Use: init, show, validate`, "warning");
+		},
+	});
+
+	pi.registerCommand("goal-tree", {
+		description:
+			"Manage the persistent goal tree. Usage: /goal-tree init <title> | branch <parent> <title> | close [id] | cancel [id] | status | current",
+		handler: async (ctx: ExtensionCommandContext) => {
+			const args = (ctx as any).args as string[] | undefined;
+			const subcommand = args?.[0];
+
+			if (!subcommand || subcommand === "help") {
+				notify(
+					ctx,
+					[
+						"Goal Tree — persistent hierarchical goal tracking",
+						"",
+						"  /goal-tree init <title>               — create root goal",
+						"  /goal-tree branch <parent-id> <title> — add child goal",
+						"  /goal-tree close [node-id]            — mark done, return to parent",
+						"  /goal-tree cancel [node-id]           — mark cancelled, return to parent",
+						"  /goal-tree status                     — show full tree",
+						"  /goal-tree current                    — show active path to root",
+						"",
+						"Depth limit: 8. Warnings at 4+.",
+						`File: ${GOAL_TREE_FILE}`,
+					].join("\n"),
+					"info",
+				);
+				return;
+			}
+
+			if (subcommand === "init") {
+				const title = args?.slice(1).join(" ").trim();
+				if (!title) {
+					notify(ctx, "Usage: /goal-tree init \"<title>\"", "warning");
+					return;
+				}
+				const existing = loadGoalTree();
+				if (existing?.root) {
+					notify(ctx, `Tree already exists with root: ${existing.nodes[existing.root]?.title}. Use branch to add children.`, "warning");
+					return;
+				}
+				const nodeId = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+				const tree: GoalTree = {
+					nodes: {
+						[nodeId]: {
+							id: nodeId,
+							parent: null,
+							title,
+							status: "active",
+							phase: "none",
+							depth: 0,
+							children: [],
+							created_at: Date.now(),
+							closed_at: null,
+						},
+					},
+					root: nodeId,
+					active: nodeId,
+				};
+				saveGoalTree(tree);
+				notify(ctx, `✅ Root goal created: ${title}`, "info");
+				return;
+			}
+
+			if (subcommand === "branch") {
+				const parentId = args?.[1];
+				const title = args?.slice(2).join(" ").trim();
+				if (!parentId || !title) {
+					notify(ctx, "Usage: /goal-tree branch <parent-id> \"<title>\"", "warning");
+					return;
+				}
+				const tree = loadGoalTree();
+				if (!tree || !tree.nodes[parentId]) {
+					notify(ctx, `Parent '${parentId}' not found. Use status to see available nodes.`, "warning");
+					return;
+				}
+				const parent = tree.nodes[parentId];
+				if (parent.status === "done" || parent.status === "cancelled") {
+					notify(ctx, `Parent '${parentId}' is already ${parent.status}`, "warning");
+					return;
+				}
+				const childDepth = parent.depth + 1;
+				if (childDepth > 8) {
+					notify(ctx, "Max depth (8) exceeded", "error");
+					return;
+				}
+				let childId = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+				if (tree.nodes[childId]) childId = `${childId}-${Date.now()}`;
+
+				tree.nodes[childId] = {
+					id: childId,
+					parent: parentId,
+					title,
+					status: "active",
+					phase: "none",
+					depth: childDepth,
+					children: [],
+					created_at: Date.now(),
+					closed_at: null,
+				};
+				parent.children.push(childId);
+				tree.active = childId;
+				saveGoalTree(tree);
+
+				const warnMsg = childDepth >= 4 ? ` ⚠️ Depth ${childDepth}/8 — consider closing ancestors first.` : "";
+				notify(ctx, `✅ Branch: ${title} [depth: ${childDepth}/8]${warnMsg}`, "info");
+				return;
+			}
+
+			if (subcommand === "close" || subcommand === "cancel") {
+				let nodeId = args?.[1];
+				const tree = loadGoalTree();
+				if (!tree) {
+					notify(ctx, "No goal tree found. Use /goal-tree init.", "warning");
+					return;
+				}
+				if (!nodeId) nodeId = tree.active ?? undefined;
+				if (!nodeId || !tree.nodes[nodeId]) {
+					notify(ctx, "Node not found. Specify a valid node-id.", "warning");
+					return;
+				}
+				const node = tree.nodes[nodeId];
+				node.status = subcommand === "cancel" ? "cancelled" : "done";
+				node.closed_at = Date.now();
+				if (node.parent) {
+					tree.active = node.parent;
+				} else {
+					tree.active = null;
+				}
+				saveGoalTree(tree);
+				const parentTitle = node.parent && tree.nodes[node.parent] ? tree.nodes[node.parent].title : "(no parent)";
+				notify(ctx, `${subcommand === "cancel" ? "⚠️ Cancelled" : "✅ Closed"}: ${node.title}\n  Returned to: ${parentTitle}`, "info");
+				return;
+			}
+
+			if (subcommand === "status") {
+				const tree = loadGoalTree();
+				if (!tree) {
+					notify(ctx, "No goal tree. Use /goal-tree init \"<title>\"", "info");
+					return;
+				}
+				notify(ctx, `═══ Goal Tree ═══\n\n${goalTreeStatus(tree)}`, "info");
+				return;
+			}
+
+			if (subcommand === "current") {
+				const tree = loadGoalTree();
+				if (!tree || !tree.active || !tree.nodes[tree.active]) {
+					notify(ctx, "No active node. Use /goal-tree init or check with /goal-tree status.", "warning");
+					return;
+				}
+				const n = tree.nodes[tree.active];
+				const path = buildGoalTreePath(tree, tree.active);
+				const statusIcons: Record<string, string> = { active: "○", done: "✓", cancelled: "✗", blocked: "⊘" };
+				const icon = statusIcons[n.status] || "?";
+				notify(
+					ctx,
+					[
+						`═══ Current Node ═══`,
+						`  ${icon} ${n.title}`,
+						`  Depth: ${n.depth}  Status: ${n.status}  Phase: ${n.phase}`,
+						`  Children: ${n.children.length}`,
+						`  Path: ${path.join(" → ")}`,
+					].join("\n"),
+					"info",
+				);
+				return;
+			}
+
+			notify(ctx, `Unknown: ${subcommand}. Use: init, branch, close, cancel, status, current`, "warning");
 		},
 	});
 

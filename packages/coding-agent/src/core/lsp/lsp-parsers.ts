@@ -112,6 +112,37 @@ export function parseGoVetOutput(stdout: string): Diagnostic[] {
 	return diagnostics;
 }
 
+// ── Rust / cargo check parser ──
+
+export function parseCargoCheckOutput(stdout: string, editedFile: string): Diagnostic[] {
+	const diagnostics: Diagnostic[] = [];
+	const editedName = editedFile.split("/").pop() ?? editedFile;
+	for (const line of stdout.split("\n")) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		try {
+			const msg = JSON.parse(trimmed);
+			if (msg.reason !== "compiler-message") continue;
+			if (msg.message?.level !== "error") continue;
+			const spans = msg.message?.spans;
+			if (!spans?.length) continue;
+			const span = spans[0];
+			const file = span.file_name ?? "";
+			if (!file.endsWith(editedName) && !file.endsWith(editedFile)) continue;
+			diagnostics.push({
+				file,
+				line: span.line_start ?? 0,
+				column: span.column_start ?? 0,
+				message: msg.message.message ?? "",
+				severity: "error",
+			});
+		} catch {
+			// skip non-JSON lines
+		}
+	}
+	return diagnostics;
+}
+
 // ── Diagnostics formatting ──
 
 export function formatDiagnostics(diagnostics: Diagnostic[]): string {
@@ -136,10 +167,11 @@ export function formatDiagnostics(diagnostics: Diagnostic[]): string {
 
 // ── File type detection ──
 
-export function detectLspRunner(filePath: string): "pyright" | "tsc" | "shellcheck" | "govet" | null {
+export function detectLspRunner(filePath: string): "pyright" | "tsc" | "shellcheck" | "govet" | "cargocheck" | null {
 	if (filePath.endsWith(".py")) return "pyright";
 	if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) return "tsc";
 	if (filePath.endsWith(".sh") || filePath.endsWith(".bash")) return "shellcheck";
 	if (filePath.endsWith(".go")) return "govet";
+	if (filePath.endsWith(".rs")) return "cargocheck";
 	return null;
 }

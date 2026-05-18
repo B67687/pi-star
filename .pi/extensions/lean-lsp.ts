@@ -10,6 +10,7 @@
  *   - TypeScript → tsc --noEmit
  *   - Shell   → shellcheck -f json
  *   - Go      → go vet
+ *   - Rust    → cargo check --message-format json
  *
  * Design:
  *   - Errors only (no warnings, no hints)
@@ -126,6 +127,36 @@ function parseGoVetOutput(stdout: string): Diagnostic[] {
 	return diagnostics;
 }
 
+function parseCargoCheckOutput(stdout: string, editedFile: string): Diagnostic[] {
+	const diagnostics: Diagnostic[] = [];
+	const editedName = editedFile.split("/").pop() ?? editedFile;
+	for (const line of stdout.split("\n")) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		try {
+			const msg = JSON.parse(trimmed);
+			if (msg.reason !== "compiler-message") continue;
+			if (msg.message?.level !== "error") continue;
+			const spans = msg.message?.spans;
+			if (!spans?.length) continue;
+			const span = spans[0];
+			const file = span.file_name ?? "";
+			// Only include errors for the edited file
+			if (!file.endsWith(editedName) && !file.endsWith(editedFile)) continue;
+			diagnostics.push({
+				file,
+				line: span.line_start ?? 0,
+				column: span.column_start ?? 0,
+				message: msg.message.message ?? "",
+				severity: "error",
+			});
+		} catch {
+			// skip non-JSON lines
+		}
+	}
+	return diagnostics;
+}
+
 function formatDiagnostics(diagnostics: Diagnostic[]): string {
 	if (diagnostics.length === 0) return "";
 	const lines: string[] = ["── LSP diagnostics ──"];
@@ -141,13 +172,16 @@ function formatDiagnostics(diagnostics: Diagnostic[]): string {
 	return lines.join("\n");
 }
 
-function detectRunner(filePath: string): "pyright" | "tsc" | "shellcheck" | "govet" | null {
+function detectRunner(filePath: string): "pyright" | "tsc" | "shellcheck" | "govet" | "cargocheck" | null {
 	if (filePath.endsWith(".py")) return "pyright";
 	if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) return "tsc";
 	if (filePath.endsWith(".sh") || filePath.endsWith(".bash")) return "shellcheck";
 	if (filePath.endsWith(".go")) return "govet";
+	if (filePath.endsWith(".rs")) return "cargocheck";
 	return null;
 }
+
+
 
 // ============================================================================
 // IO layer (pi.exec)
@@ -177,6 +211,27 @@ async function runGoVet(filePath: string, pi: ExtensionAPI) {
 	return parseGoVetOutput(r.stdout || r.stderr);
 }
 
+async function runCargoCheck(filePath: string, pi: ExtensionAPI) {
+	// Walk up from file to find Cargo.toml by trying cargo check from each parent
+	const parts = filePath.split("/");
+	for (let i = parts.length - 1; i >= 1; i--) {
+		const dir = parts.slice(0, i).join("/");
+		if (!dir || dir === ".") continue;
+
+		const r = await pi.exec("cargo", ["check", "--message-format", "json", "-q"], {
+			cwd: dir,
+			timeout: 60_000,
+		});
+		if (r.code === 0) return [];
+		if (r.code === 101) return []; // 101 = cargo itself errored (no Cargo.toml) — try next parent
+		if (r.stderr?.includes("could not find `Cargo.toml`")) continue; // not a cargo project
+
+		// Cargo found a Cargo.toml and ran — return diagnostics
+		return parseCargoCheckOutput(r.stdout, filePath);
+	}
+	return [];
+}
+
 // ============================================================================
 // Extension entry point
 // ============================================================================
@@ -198,7 +253,9 @@ export default function leanLspExtension(pi: ExtensionAPI) {
 					? await runTsc(filePath, pi)
 					: runner === "shellcheck"
 						? await runShellcheck(filePath, pi)
-						: await runGoVet(filePath, pi);
+						: runner === "govet"
+							? await runGoVet(filePath, pi)
+							: await runCargoCheck(filePath, pi);
 
 		if (!diagnostics?.length) return;
 

@@ -1,0 +1,1 @@
+All tests pass. Saved to `cache_decorator.py` — full implementation with both `disk_cache` decorator and `DiskCache` class, thread-safe, handles unhashable args, TTL expiry, atomic writes, and `clear()`.

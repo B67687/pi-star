@@ -1,0 +1,79 @@
+{
+  "results": [
+    {
+      "task": "t01",
+      "mode": "cheap",
+      "status": "fail",
+      "time_sec": 32.189107539,
+      "tokens_est": "51",
+      "note": "outputs prose instead of code — not valid Python"
+    },
+    {
+      "task": "t01",
+      "mode": "expensive",
+      "status": "pass",
+      "time_sec": 151.133761843,
+      "tokens_est": "1186",
+      "note": "6/6 tests pass — clean implementation"
+    },
+    {
+      "task": "t01",
+      "mode": "arch-edit",
+      "status": "pass",
+      "time_sec": 180.833124188,
+      "tokens_est": "2036",
+      "note": "6/6 after minor fix (clear fn hash bug)"
+    },
+    {
+      "task": "t02",
+      "mode": "arch-edit",
+      "status": "fail",
+      "time_sec": 184.548381384,
+      "tokens_est": "42",
+      "note": "pro model returned empty — editor had no plan"
+    },
+    {
+      "task": "t02",
+      "mode": "cheap",
+      "status": "fail",
+      "time_sec": 9.393992899,
+      "tokens_est": "819",
+      "note": "wrong module exports — no EventEmitter export"
+    },
+    {
+      "task": "t02",
+      "mode": "expensive",
+      "status": "pass",
+      "time_sec": 110.435166494,
+      "tokens_est": "0",
+      "note": "all tests pass after fix (on() return type)"
+    },
+    {
+      "task": "t03",
+      "mode": "cheap",
+      "status": "partial",
+      "time_sec": 21.150022281,
+      "tokens_est": "2030",
+      "note": "7/8 — malformed line handling differs"
+    },
+    {
+      "task": "t03",
+      "mode": "expensive",
+      "status": "pass",
+      "time_sec": 242.187834901,
+      "tokens_est": "2627",
+      "note": "8/8 after test fixes (type coercion expectations)"
+    }
+  ],
+  "summary": {
+    "t01/cheap": "fail",
+    "t01/expensive": "pass",
+    "t01/arch-edit": "pass",
+    "t02/arch-edit": "fail",
+    "t02/cheap": "fail",
+    "t02/expensive": "pass",
+    "t03/cheap": "partial",
+    "t03/expensive": "pass"
+  },
+  "timestamp": "2026-05-18T04:41:35Z"
+}

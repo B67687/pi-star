@@ -33,12 +33,12 @@ get_task() {
 }
 
 run_pistar() {
-	local model="$1" prompt="$2"
+	local model="$1" prompt="$2" time="${3:-120}"
 	# Append instruction that the output IS the file content
 	local full_prompt="${prompt}
 
 Your entire response below this line will be saved as the source file. Start with the first line of code. No markdown formatting, no backticks, no explanation. Just raw source code."
-	printf '%s' "$full_prompt" | timeout 120 "$PI_BIN" --provider "$PROVIDER" --model "$model" 2>/dev/null
+	printf '%s' "$full_prompt" | timeout "$time" "$PI_BIN" --provider "$PROVIDER" --model "$model" 2>/dev/null
 }
 
 extract_code() {
@@ -125,7 +125,7 @@ run_mode() {
 	local task_dir="$TASKS_DIR/$file"
 	local ext="py"
 	[[ "$lang" == "typescript" ]] && ext="ts"
-	local sol_file="$task_dir/solution.$ext"
+	local sol_file="$task_dir/solution-${mode}.$ext"
 	local test_cmd="python3 \"$task_dir/test.py\""
 	[[ "$lang" == "typescript" ]] && test_cmd="cd \"$task_dir\" && npx tsx test.ts"
 
@@ -139,11 +139,11 @@ run_mode() {
 		code=$(run_pistar "$CHEAP" "$prompt" | extract_code)
 		;;
 	expensive)
-		code=$(run_pistar "$EXPENSIVE" "$prompt" | extract_code)
+		code=$(run_pistar "$EXPENSIVE" "$prompt" 300 | extract_code)
 		;;
 	arch-edit)
 		local plan=$(run_pistar "$EXPENSIVE" \
-			"Create a detailed implementation plan for this task. List file structure, function signatures, key algorithms. DO NOT write code.\n\n$prompt")
+			"Create a detailed implementation plan for this task. List file structure, function signatures, key algorithms. DO NOT write code.\n\n$prompt" 180)
 		echo "    Plan: $(echo "$plan" | wc -w) words"
 		code=$(run_pistar "$CHEAP" \
 			"Implement this plan. Return ONLY the code in a markdown block.\n\n$plan" | extract_code)
@@ -154,15 +154,17 @@ run_mode() {
 	token_est=$(echo "$code" | wc -c | tr -d ' ')
 	token_est=$((token_est / 4))
 
-	# Write solution
+	# Write solution to mode-specific file, symlink to solution.ext for test importing
 	echo "$code" >"$sol_file"
+	rm -f "$task_dir/solution.$ext"
+	ln -s "$(basename "$sol_file")" "$task_dir/solution.$ext"
 	echo "    Code: $(wc -c <"$sol_file") bytes"
 
-	# Run test
-	test_out=$(eval "$test_cmd" 2>&1) || true
-	if echo "$test_out" | grep -q "All tests passed\|0 failed\|passed.*✓"; then
+	# Run test — capture stdout and exit code separately
+	test_out=$(eval "$test_cmd" 2>&1) && test_rc=0 || test_rc=$?
+	if [ "$test_rc" -eq 0 ]; then
 		status="pass"
-	elif echo "$test_out" | grep -q "✓"; then
+	elif echo "$test_out" | grep -qE "[0-9]+/[0-9]+ passed"; then
 		status="partial"
 	else
 		status="fail"

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
 	formatDiagnostics,
+	parseCargoCheckOutput,
+	parseGoVetOutput,
 	parsePyrightOutput,
 	parseShellcheckOutput,
 	parseTscOutput,
@@ -144,7 +146,7 @@ describe("parseTscOutput", () => {
 	});
 
 	it("should parse file paths with spaces", () => {
-		const output = ['src/my folder/test.ts(10,3): error TS2554: Wrong arg count.'].join("\n");
+		const output = ["src/my folder/test.ts(10,3): error TS2554: Wrong arg count."].join("\n");
 		const result = parseTscOutput(output);
 		expect(result).toHaveLength(1);
 		expect(result[0].file).toContain("my folder");
@@ -202,6 +204,138 @@ describe("parseShellcheckOutput", () => {
 
 	it("should return empty array on empty output", () => {
 		const result = parseShellcheckOutput("[]");
+		expect(result).toEqual([]);
+	});
+});
+
+// ============================================================================
+// Go vet parser
+// ============================================================================
+
+describe("parseGoVetOutput", () => {
+	it("should parse a standard go vet error", () => {
+		const output = [
+			"# command-line-arguments",
+			"vet: ./main.go:8:6: invalid operation: x + \"hello\" (mismatched types int and untyped string)",
+		].join("\n");
+		const result = parseGoVetOutput(output);
+		expect(result).toHaveLength(1);
+		expect(result[0].file).toContain("main.go");
+		expect(result[0].line).toBe(8);
+		expect(result[0].column).toBe(6);
+		expect(result[0].message).toContain("mismatched types");
+		expect(result[0].severity).toBe("error");
+	});
+
+	it("should skip package header lines starting with #", () => {
+		const output = [
+			"# my/package/path",
+			"vet: ./util.go:3:2: undefined: X",
+		].join("\n");
+		const result = parseGoVetOutput(output);
+		expect(result).toHaveLength(1);
+		expect(result[0].line).toBe(3);
+	});
+
+	it("should return empty on clean output", () => {
+		const result = parseGoVetOutput("");
+		expect(result).toEqual([]);
+	});
+
+	it("should handle messages without tool prefix", () => {
+		const output = ["./foo.go:1:1: syntax error: unexpected newline"].join("\n");
+		const result = parseGoVetOutput(output);
+		expect(result).toHaveLength(1);
+		expect(result[0].line).toBe(1);
+		expect(result[0].message).toContain("syntax error");
+	});
+
+	it("should skip 'go: ' prefixed lines", () => {
+		const output = ["go: downloading module x", "vet: ./x.go:5:5: undefined: y"].join("\n");
+		const result = parseGoVetOutput(output);
+		expect(result).toHaveLength(1);
+		expect(result[0].line).toBe(5);
+	});
+});
+
+// ============================================================================
+// Rust / cargo check parser
+// ============================================================================
+
+describe("parseCargoCheckOutput", () => {
+	it("should parse a standard cargo check error", () => {
+		const output = JSON.stringify({
+			reason: "compiler-message",
+			message: {
+				level: "error",
+				message: "mismatched types",
+				spans: [{ file_name: "src/main.rs", line_start: 5, column_start: 12 }],
+			},
+		});
+		const result = parseCargoCheckOutput(output, "src/main.rs");
+		expect(result).toHaveLength(1);
+		expect(result[0].file).toBe("src/main.rs");
+		expect(result[0].line).toBe(5);
+		expect(result[0].column).toBe(12);
+		expect(result[0].severity).toBe("error");
+	});
+
+	it("should filter out warnings", () => {
+		const output = [
+			JSON.stringify({
+				reason: "compiler-message",
+				message: { level: "error", message: "Type error", spans: [{ file_name: "src/main.rs", line_start: 1, column_start: 1 }] },
+			}),
+			JSON.stringify({
+				reason: "compiler-message",
+				message: { level: "warning", message: "Unused variable", spans: [{ file_name: "src/main.rs", line_start: 2, column_start: 1 }] },
+			}),
+		].join("\n");
+		const result = parseCargoCheckOutput(output, "src/main.rs");
+		expect(result).toHaveLength(1);
+		expect(result[0].message).toBe("Type error");
+	});
+
+	it("should only include errors for the edited file", () => {
+		const output = [
+			JSON.stringify({
+				reason: "compiler-message",
+				message: { level: "error", message: "Err in main", spans: [{ file_name: "src/main.rs", line_start: 1, column_start: 1 }] },
+			}),
+			JSON.stringify({
+				reason: "compiler-message",
+				message: { level: "error", message: "Err in lib", spans: [{ file_name: "src/lib.rs", line_start: 3, column_start: 5 }] },
+			}),
+		].join("\n");
+		const result = parseCargoCheckOutput(output, "src/main.rs");
+		expect(result).toHaveLength(1);
+		expect(result[0].message).toContain("main");
+	});
+
+	it("should skip non-compiler-message JSON lines", () => {
+		const output = [
+			JSON.stringify({ reason: "compiler-artifact", package_id: "test" }),
+			JSON.stringify({ reason: "build-finished", success: false }),
+			JSON.stringify({
+				reason: "compiler-message",
+				message: { level: "error", message: "Real error", spans: [{ file_name: "src/main.rs", line_start: 1, column_start: 1 }] },
+			}),
+		].join("\n");
+		const result = parseCargoCheckOutput(output, "src/main.rs");
+		expect(result).toHaveLength(1);
+	});
+
+	it("should return empty array on clean output", () => {
+		const result = parseCargoCheckOutput("", "src/main.rs");
+		expect(result).toEqual([]);
+	});
+
+	it("should handle messages without spans gracefully", () => {
+		const output = JSON.stringify({
+			reason: "compiler-message",
+			message: { level: "error", message: "Some note" },
+		});
+		const result = parseCargoCheckOutput(output, "src/main.rs");
 		expect(result).toEqual([]);
 	});
 });

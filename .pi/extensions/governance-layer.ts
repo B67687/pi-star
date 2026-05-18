@@ -45,31 +45,6 @@ interface GovernanceState {
 
 type GateResult = { pass: boolean; reason: string };
 
-// ── Milestone ladder types ──
-
-interface MilestoneItem {
-	id: number;
-	name: string;
-	deliverable: string;
-	acceptance_criteria: string;
-}
-
-interface MilestoneLadder {
-	task: string;
-	generated_at: number;
-	milestones: MilestoneItem[];
-	first_slice: {
-		target: string;
-		scope: string;
-		files: string[];
-		verification: string;
-	};
-	out_of_scope: string[];
-	verification_target: string;
-}
-
-const MILESTONE_LADDER_FILE = join(STATE_DIR, "milestone-ladder.json");
-
 // ============================================================================
 // Phase state machine
 // ============================================================================
@@ -214,6 +189,31 @@ const METHODOLOGY_FILES: Array<{ local: string; upstream: string; label: string 
 
 const STATE_DIR = join(homedir(), ".pi", "runtime");
 const STATE_FILE = join(STATE_DIR, "governance-state.json");
+
+// ── Milestone ladder types + path (defined after STATE_DIR to avoid TDZ) ──
+
+interface MilestoneItem {
+	id: number;
+	name: string;
+	deliverable: string;
+	acceptance_criteria: string;
+}
+
+interface MilestoneLadder {
+	task: string;
+	generated_at: number;
+	milestones: MilestoneItem[];
+	first_slice: {
+		target: string;
+		scope: string;
+		files: string[];
+		verification: string;
+	};
+	out_of_scope: string[];
+	verification_target: string;
+}
+
+const MILESTONE_LADDER_FILE = join(STATE_DIR, "milestone-ladder.json");
 
 function ensureStateDir(): void {
 	if (!existsSync(STATE_DIR)) {

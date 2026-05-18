@@ -19,6 +19,7 @@
  */
 
 import type { ExtensionAPI, ExtensionCommandContext } from "@b67687/pi-star-coding-agent";
+import { Type } from "@sinclair/typebox";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -227,6 +228,10 @@ research → plan → implement → verify phase discipline.
 3. **Implement phase** — write code in verified slices. Commit after each slice.
 4. **Verify phase** — prove the change works. No new work until verification is done.
 
+### LLM Tools
+- \`set-phase\` — transition between phases (research → plan → implement → verify).
+  Call this tool to announce your current phase. Edits are BLOCKED in research and plan phases.
+
 ### Commands
 - \`/phase\` — show current phase
 - \`/phase <name>\` — transition to a new phase (gate-checked)
@@ -235,9 +240,106 @@ research → plan → implement → verify phase discipline.
 - \`/methodology\` — show this guide
 
 ### Enforcement
-- Edits in research or plan phases will trigger a warning.
+- Edits in research or plan phases are **blocked**. Use \`set-phase\` to transition.
 - Phase transitions are blocked if prerequisites are not met.
-- After implementation, verification is required before new work.`;
+- After implementation, verification is required before new work.
+- The initial phase is auto-detected from your task description.`;
+
+// ============================================================================
+// Initial phase auto-detection
+// ============================================================================
+
+const RESEARCH_KEYWORDS = /\b(research|investigate|explore|find out|learn about|understand|how does|study|analyze|what are|tell me about|show me|explain|documentation|read|look up)\b/i;
+const PLAN_KEYWORDS = /\b(plan|design|architecture|scope|outline|propose|strategy|approach|spec|specification|milestone)\b/i;
+const IMPLEMENT_KEYWORDS = /\b(implement|build|write|code|create|add|fix|change|modify|refactor|update|make|develop|implement|patch|resolve|correct|introduce)\b/i;
+const VERIFY_KEYWORDS = /\b(verify|test|validate|audit|prove|regression|coverage|assert)\b/i;
+
+function detectInitialPhase(message: string): Phase {
+	// Priority: research first (least harmful default), then plan,
+	// then implement for action requests, then verify for testing.
+	// Greetings and empty queries default to research.
+	const cleanMsg = message.trim().toLowerCase();
+	if (!cleanMsg || cleanMsg.length < 5 || /^(hello|hi|hey|good morning|good afternoon|good evening)\b/i.test(cleanMsg)) {
+		return "research";
+	}
+	// Check from most specific/constraining to least
+	if (RESEARCH_KEYWORDS.test(message)) return "research";
+	if (PLAN_KEYWORDS.test(message)) return "plan";
+	if (IMPLEMENT_KEYWORDS.test(message)) return "implement";
+	if (VERIFY_KEYWORDS.test(message)) return "verify";
+	return "research"; // default to research for ambiguous queries
+}
+
+// ============================================================================
+// `set-phase` tool — LLM-callable phase transitions
+// ============================================================================
+
+const SET_PHASE_TOOL = {
+	name: "set-phase",
+	label: "Set Governance Phase",
+	description:
+		"Transition to a new governance phase. The cycle is: research → plan → implement → verify. " +
+		"Call this tool to announce which phase of work you are entering. " +
+		"The phase determines what actions are allowed: research=reading only, " +
+		"plan=design only, implement=code+fix, verify=test+review.",
+	promptSnippet: "Use set-phase to transition between governance phases: research → plan → implement → verify.",
+	promptGuidelines: [
+		"ALWAYS start a task by calling set-phase to announce the phase you are entering.",
+		"Research phase: read files, understand the system. NO edits allowed.",
+		"Plan phase: design, scope, outline steps. NO edits allowed.",
+		"Implement phase: write code, make changes. Edits are allowed.",
+		"Verify phase: test, review, validate. NO new implementation work until verification is complete.",
+		"Transitions are enforced: implement requires prior plan, plan requires prior research.",
+	],
+	parameters: Type.Object({
+		phase: Type.Union(
+			[
+				Type.Literal("research", { description: "Read and understand the system. No file modifications." }),
+				Type.Literal("plan", { description: "Define scope, steps, and verification targets. No code yet." }),
+				Type.Literal("implement", { description: "Write code in verified slices. File modifications allowed." }),
+				Type.Literal("verify", { description: "Test, review diffs, document residual risk. No new work." }),
+			],
+			{ description: "The phase to transition to" },
+		),
+	}),
+	execute: async (
+		_toolCallId: string,
+		params: { phase: string },
+	): Promise<{ content: Array<{ type: string; text: string }>; details: unknown }> => {
+		const target = params.phase as Phase;
+		const allowed = PHASE_TRANSITIONS[state.currentPhase];
+
+		if (!allowed.includes(target)) {
+			const msg = `Cannot transition: ${PHASE_LABELS[state.currentPhase]} → ${PHASE_LABELS[target]}. Allowed: ${allowed.join(", ") || "none"}`;
+			return {
+				content: [{ type: "text", text: `⚠️ ${msg}` }],
+				details: { error: msg, currentPhase: state.currentPhase, allowedTransitions: allowed },
+				isError: true,
+			};
+		}
+
+		state.history.push({ phase: target, timestamp: Date.now(), summary: "" });
+		state.currentPhase = target;
+		saveState(state);
+
+		const guidance = PHASE_PROMPTS[target] || `You are now in the ${target} phase.`;
+		return {
+			content: [
+				{
+					type: "text",
+					text: `✅ Phase changed to: ${PHASE_LABELS[target]}\n\n${guidance}\n\n${
+						target === "research" || target === "plan"
+							? "⚠️  WARNING: Direct file edits are blocked in this phase. Use read-only tools only."
+							: target === "implement"
+								? "✏️  You may now edit files. Commit after each verified slice."
+								: "🔍  Verify the change. Run tests, review diffs. Do NOT start new implementation."
+					}`,
+				},
+			],
+			details: { phase: target, timestamp: Date.now() },
+		};
+	},
+};
 
 // ============================================================================
 // Extension
@@ -246,13 +348,16 @@ research → plan → implement → verify phase discipline.
 export default function governanceLayerExtension(pi: ExtensionAPI) {
 	const state = loadState();
 
-		// ── Helpers ──
+	// ── Register the set-phase tool ──
+	pi.registerTool(SET_PHASE_TOOL);
+
+	// ── Helpers ──
 
 	function notify(ctx: ExtensionCommandContext, msg: string, level: "info" | "warning" | "error" = "info"): void {
 		if ((ctx as any).ui?.notify) {
 			(ctx as any).ui.notify(msg, level);
 		}
-		// In non-interactive mode, also log to stdout so the agent sees it
+		// Always log to stdout/stderr so agent sees it in --print mode too
 		if (level === "error") {
 			console.error(`[governance] ${msg}`);
 		} else {
@@ -405,36 +510,60 @@ export default function governanceLayerExtension(pi: ExtensionAPI) {
 	// ── Lifecycle hooks ──
 
 	pi.on("before_agent_start", async (event: any) => {
-		if (state.currentPhase !== "none") {
-			const phasePrompt = PHASE_PROMPTS[state.currentPhase];
-			return {
-				systemPrompt:
-					event.systemPrompt + "\n\n" + METHODOLOGY_GUIDE + "\n\n" + phasePrompt,
-			};
+		// Auto-detect initial phase if none is set and we have a user prompt
+		if (state.currentPhase === "none" && event.prompt) {
+			const userMsg = typeof event.prompt === "string" ? event.prompt : "";
+			const detected = detectInitialPhase(userMsg);
+			state.currentPhase = detected;
+			state.history.push({ phase: detected, timestamp: Date.now(), summary: "auto-detected from user input" });
+			saveState(state);
+			console.log(`[governance] Auto-detected phase: ${detected} from: "${userMsg.slice(0, 80)}"`);
 		}
+
+		const phasePrompt = state.currentPhase !== "none" ? PHASE_PROMPTS[state.currentPhase] : "";
+		const autoGuide =
+			state.currentPhase !== "none"
+				? `\n\n### Auto-Set Phase: ${state.currentPhase}\n` +
+					`The system detected the current phase from your task. If you need to change phase, ` +
+					`use the \`set-phase\` tool (not a command — the LLM-callable tool).\n` +
+					`Transitions allowed from here: ${PHASE_TRANSITIONS[state.currentPhase].join(", ") || "none"}`
+				: "";
+
 		return {
-			systemPrompt: event.systemPrompt + "\n\n" + METHODOLOGY_GUIDE,
+			systemPrompt:
+				event.systemPrompt + "\n\n" + METHODOLOGY_GUIDE + "\n\n" + phasePrompt + autoGuide,
 		};
 	});
 
 	pi.on("tool_call", async (event: any, ctx: any) => {
 		if (event.toolName === "write" || event.toolName === "edit") {
 			if (state.currentPhase === "research" || state.currentPhase === "plan" || state.currentPhase === "none") {
-				if (ctx.hasUI) {
-					ctx.ui.notify(
-						`⚠️  Edit in ${state.currentPhase} phase. Consider /phase implement before modifying files.`,
-						"warning",
-					);
+				const msg = `⚠️  Blocked: edit in ${state.currentPhase} phase. Use set-phase tool to transition to "implement" phase before modifying files.`;
+
+				// Notify in TUI mode
+				if ((ctx as any).ui?.notify) {
+					(ctx as any).ui.notify(msg, "warning");
 				}
-				return { block: false }; // Warn but don't block
+
+				// Log to stdout so agent sees it in --print mode
+				console.log(`[governance] ${msg}`);
+
+				return {
+					block: true,
+					reason: `Edits are blocked in the "${state.currentPhase}" phase. Call the set-phase tool to transition to "implement" first.`,
+				};
 			}
 		}
 		return undefined;
 	});
 
 	pi.on("session_start", async (_event: any, ctx: any) => {
-		if (ctx.hasUI && state.currentPhase !== "none") {
-			ctx.ui.notify(`Governance active — current phase: ${PHASE_LABELS[state.currentPhase]}`, "info");
+		if (state.currentPhase !== "none") {
+			const msg = `Governance active — current phase: ${PHASE_LABELS[state.currentPhase]}`;
+			if ((ctx as any).ui?.notify) {
+				(ctx as any).ui.notify(msg, "info");
+			}
+			console.log(`[governance] ${msg}`);
 		}
 	});
 }

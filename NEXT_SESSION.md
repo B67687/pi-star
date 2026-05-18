@@ -1,4 +1,4 @@
-Read `/home/namikaz/projects/dev/pi-star/HANDOVER.md` for complete context before responding. This is a continuation session.
+Read `/home/namikaz/projects/dev/pi-star/HANDOVER.md` for COMPLETE context before responding. It contains the full goal breakdown, architecture design, research findings, known issues, tools ecosystem, methodology reference, and commands. Do not proceed without reading it.
 
 ## The Final Product
 
@@ -17,11 +17,18 @@ This project is called Pi-Star: a fork of [Pi](https://github.com/badlogic/pi-mo
 - Architect/editor routing benchmark is **68% complete** — `research/bench-architect/`
 - agentic-workflows methodology updated — PR at https://github.com/B67687/agentic-workflows/pull/8
 
-**First tasks for this session:**
-1. Read HANDOVER.md thoroughly (it has the full goal breakdown, known issues, and commands)
-2. Continue the architect/editor benchmark (complete missing modes/tasks)
-3. Based on results: decide whether to implement architect/editor routing as pi-star feature
-4. Or move to next research question from ARCHITECTURE.md
+**Session entry point — do this first:**
+1. Read `/home/namikaz/projects/dev/pi-star/HANDOVER.md` entirely before doing anything else
+2. Check current branch and git status in `~/projects/dev/pi-star`
+3. Run `bash research/bench-architect/run-bench.sh --report` to see where the benchmark left off
+4. Continue the architect/editor benchmark (complete missing modes/tasks for t02 and t03)
+5. Based on results: decide whether to implement architect/editor routing as pi-star feature
+6. Or move to next research question from ARCHITECTURE.md (section 4 — Research Agenda)
+
+**Immediate context:**
+- The last session completed G1.1 (build pi-star) and most of G2.1 (LSP benchmark ✅, routing benchmark ⏳)
+- The lean LSP extension is already live — no further work needed there
+- The architect/editor benchmark needs completion before we can decide on implementation
 
 **Key config:**
 - Provider: `opencode-go` (API key in `~/.pi/agent/auth.json`)

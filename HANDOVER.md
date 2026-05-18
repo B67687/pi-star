@@ -103,6 +103,71 @@ opencode-go provider at `~/.pi/agent/auth.json` has API key. Models:
 - Provider prefix required: `--provider opencode-go --model "deepseek-v4-*"`
 - Without `--provider` flag, pi-star defaults to `google` provider (not opencode-go)
 
+## Architecture Design (from ARCHITECTURE.md)
+
+Pi-Star follows a **minimal core + optional layers** architecture:
+
+```
+  Pi core (<500 tokens system prompt)
+  ├── Layer 1: Multi-model routing (architect/editor, cost-aware)
+  ├── Layer 2: Quality (lean LSP, verification hooks)
+  ├── Layer 3: Governance (phase gates, constitution, propagation)
+  ├── Layer 4: Memory (session search, knowledge graph)
+  └── Layer 5: Sub-agents (parallel exploration, sandboxed execution)
+```
+
+Each layer is opt-in. The core works without any layer loaded. Layers are loaded lazily — you only pay for what you use.
+
+**Research corpus** (11 tools analyzed in ARCHITECTURE.md):
+Pi, OpenCode, Aider, Claude Code, Codex CLI, Gemini CLI, DeepSeek-TUI, Hermes Agent, Ruflo, SwarmVault, agentic-workflows
+
+Each tool's strengths and weaknesses were extracted. See `ARCHITECTURE.md` section 2 for full analysis.
+
+**Remaining open research questions** (not yet investigated):
+- Does selective MCP (single-purpose tools) outperform model-native chain-of-thought?
+- Does OS-level sandboxing prevent real mistakes better than permission prompts?
+- Does tiered memory (Hermes-style) improve outcomes?
+- What's the optimal RLM fan-out count for parallel exploration?
+
+## User's Tool Ecosystem
+
+The user has 7 agentic tools installed, 3 primary agents configured in ALL 17 repos:
+
+### Installed Tools
+| Tool | Version | Purpose |
+|------|---------|---------|
+| OpenCode TUI | 1.15.1 | Former primary daily driver |
+| Pi-Star | 0.74.0 (fork) | New primary, replaced OpenCode |
+| Pi (upstream) | 0.74.1 | Upstream reference |
+| DeepSeek-TUI | 0.8.37 | RLM parallel exploration (installed, not used yet) |
+| Ruflo | 3.7.0-alpha.26 | Swarm orchestration (daemon running) |
+| SwarmVault CLI | 3.14.0 | Knowledge graph / wiki compiler |
+| Smithery CLI | 4.11.0 | MCP server registry |
+
+### Repo Configuration (17 repos)
+Every repo under `~/projects/dev/` has these configs:
+- `.opencode/commands/` + `AGENTS.md` — OpenCode config
+- `.pi/settings.json` + `AGENTS.md` — Pi/Pi-Star config
+- `.claude/settings.json` + `CLAUDE.md` + hooks/ — Claude Code config
+- `agentic-workflows` repo also has: `.codex/`, `.cursor/rules/`, `.windsurfrules`
+
+### 9Router Setup
+- Runs at `http://127.0.0.1:20128/v1` (localhost)
+- Configured in `~/.config/opencode/opencode.jsonc` as `9router` provider
+- Routes to: full-precision-stack, deepseek/deepseek-v4-flash, deepseek/deepseek-v4-pro, kr/claude-sonnet-4.5, vertex/gemini-3.1-pro-preview
+- Also used by Pi/Pi-Star via `opencode-go` provider (API key in `~/.pi/agent/auth.json`)
+- Max heap: 6.1GB
+
+### Methodology Reference (agentic-workflows)
+- **Repo**: `~/projects/dev/agentic-workflows/` — 503+ commits, 112-test smoke suite
+- **Constitution**: 9 articles (BLOCKING/ADVISORY gates)
+- **Phase discipline**: research → plan → implement → verify
+- **Decision pipeline**: chains all gates before phase transitions
+- **Feedback loop**: post-verify → methodology gap detection
+- **Propagation**: 52 templates synced to 17 repos
+- **46 skills** covering debug, review, ship, document
+- **System**: WSL2 (Ubuntu 24.04), 12GB RAM, Node v24.15.0, Python 3.12.3
+
 ## Known Issues
 
 1. **Pro model empty response**: `deepseek-v4-pro` sometimes returns 1 byte (empty). Happens with long prompts + thinking mode. Workaround: retry or increase timeout to 300s.

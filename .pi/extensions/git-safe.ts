@@ -158,10 +158,11 @@ const GIT_OPS_TOOL = {
 				Type.Literal("status"),
 				Type.Literal("pr"),
 				Type.Literal("branch"),
+				Type.Literal("prune"),
 			],
 			{
 				description:
-					"Git operation to perform. commit=stage+commit, push=push to remote, status=show status, pr=create PR, branch=list/switch branches",
+					"Git operation to perform. commit=stage+commit, push=push to remote, status=show status, pr=create PR, branch=list/switch branches, prune=delete merged branches",
 			},
 		),
 		message: Type.Optional(
@@ -172,7 +173,7 @@ const GIT_OPS_TOOL = {
 		target: Type.Optional(
 			Type.String({
 				description:
-					'Branch name for branch operation. Remote name for push (default: "origin"). Base branch for PR (default: current branch).',
+					'Branch name for branch operation. Remote name for push (default: "origin"). Base branch for PR or pruning (default: "main"). For prune, deletes this specific branch.',
 			}),
 		),
 	}),
@@ -314,6 +315,44 @@ async function handleGitOp(
 			return lines.join("\n");
 		}
 
+		case "prune": {
+			const base = target || "main";
+			const lines: string[] = [];
+
+			// Find local branches merged into base
+			const mergedR = await pi.exec("git", ["branch", "--merged", base], { cwd: repo.root, timeout: 5000 });
+			const toPrune: string[] = [];
+			for (const b of mergedR.stdout.split("\n")) {
+				const name = b.trim().replace(/^\* /, "");
+				if (!name || name === base || name === "HEAD") continue;
+				toPrune.push(name);
+			}
+
+			if (toPrune.length === 0) {
+				return "No merged branches to prune. Everything clean.";
+			}
+
+			lines.push(`Found ${toPrune.length} merged branch(es) into ${base}:\n`);
+
+			for (const branch of toPrune) {
+				// Delete local
+				await pi.exec("git", ["branch", "-d", branch], { cwd: repo.root, timeout: 5000 });
+				lines.push(`  ✓ Deleted local: ${branch}`);
+
+				// Delete remote if it exists
+				const remoteCheck = await pi.exec("git", ["ls-remote", "--heads", "origin", branch], {
+					cwd: repo.root,
+					timeout: 5000,
+				});
+				if (remoteCheck.stdout.trim()) {
+					await pi.exec("git", ["push", "origin", "--delete", branch], { cwd: repo.root, timeout: 10_000 });
+					lines.push(`  ✓ Deleted remote: origin/${branch}`);
+				}
+			}
+
+			return lines.join("\n");
+		}
+
 		default:
 			throw new Error(`Unknown operation: ${operation}`);
 	}
@@ -323,9 +362,52 @@ async function handleGitOp(
 // Extension Entry Point
 // ============================================================================
 
+/**
+ * Auto-prune: detect if current branch is merged into main and clean up.
+ * Runs on extension load (start of each session).
+ */
+async function autoPruneIfMerged(pi: ExtensionAPI): Promise<void> {
+	try {
+		// Check if we're in a git repo
+		const cwdR = await pi.exec("pwd", [], { timeout: 2000 });
+		const cwd = cwdR.stdout.trim();
+		const repo = await getGitRepo(pi, cwd + "/x");
+		if (!repo) return;
+
+		// Skip main/master — never prune them
+		if (repo.branch === "main" || repo.branch === "master") return;
+
+		// Check if current branch is merged into main
+		const mergedR = await pi.exec("git", ["branch", "--merged", "main"], { cwd: repo.root, timeout: 5000 });
+		const isMerged = mergedR.stdout.split("\n").some((b) => b.trim().replace(/^\* /, "") === repo.branch);
+
+		if (!isMerged) return;
+
+		// Branch is merged — prune it
+		await pi.exec("git", ["branch", "-d", repo.branch], { cwd: repo.root, timeout: 5000 });
+
+		// Delete remote if exists
+		const remoteR = await pi.exec("git", ["ls-remote", "--heads", "origin", repo.branch], {
+			cwd: repo.root,
+			timeout: 5000,
+		});
+		if (remoteR.stdout.trim()) {
+			await pi.exec("git", ["push", "origin", "--delete", repo.branch], { cwd: repo.root, timeout: 10_000 });
+		}
+
+		// Switch to main
+		await pi.exec("git", ["checkout", "main"], { cwd: repo.root, timeout: 5000 });
+	} catch {
+		// Auto-prune is best-effort — fail silently
+	}
+}
+
 export default function gitSafeExtension(pi: ExtensionAPI) {
 	_pi = pi;
 	config = loadConfig(pi);
+
+	// Auto-prune merged branches on session start (best-effort)
+	autoPruneIfMerged(pi);
 
 	// Register the git-ops tool
 	pi.registerTool(GIT_OPS_TOOL);

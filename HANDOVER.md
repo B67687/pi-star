@@ -249,7 +249,7 @@ Every repo under `~/projects/dev/` has these configs:
 5. **Pre-existing tsc integration test failure**: Not related to our changes. Test file doesn't trigger type error with project's tsconfig.
 6. **First `cargo check` is slow**: Full build takes 30-120s. Incremental builds <0.1s. LSP uses 60s timeout with graceful degradation.
 
-## Extension Suite (8 Active)
+## Extension Suite (9 Active + 4 Agents)
 
 All auto-discovered from `.pi/extensions/`:
 > **Note**: Global copies in `~/.pi/agent/extensions/` were removed to avoid
@@ -257,7 +257,8 @@ All auto-discovered from `.pi/extensions/`:
 
 | Extension | Lines | What |
 |-----------|-------|------|
-| `memory-layer.ts` | ~450 | **NEW** Layer 4: session-search tool, /remember, /recall, auto-extraction |
+| `subagent-layer.ts` | ~470 | **NEW** Layer 5: subagent dispatch (single/parallel/chain), sandbox execution |
+| `memory-layer.ts` | ~450 | Layer 4: session-search tool, /remember, /recall, auto-extraction |
 | `governance-layer.ts` | ~420 | Layer 3: phase gates, constitution checks, propagation sync |
 | `lean-lsp.ts` | ~230 | LSP for Python/TS/Shell/Go/Rust — errors-only, <800 tokens |
 | `cost-router.ts` | ~120 | `/route code` → pro, `/route research` → flash |
@@ -266,6 +267,15 @@ All auto-discovered from `.pi/extensions/`:
 | `prompt-url-widget.ts` | ~130 | URL display widget |
 | `workflow-guard.ts` | ~150 | Safety guard (dangerous commands, protected paths) |
 | `tps.ts`, `redraws.ts` | ~2K | Performance monitors |
+
+**Agents** (`.pi/agents/` — discovered by subagent tool):
+
+| Agent | Model | Tools | Purpose |
+|-------|-------|-------|---------|
+| `scout` | default | read,glob,grep,ls | Explore codebases, find relevant files |
+| `planner` | default | read,glob,grep | Design architecture, write specs |
+| `worker` | ds/deepseek-v4-pro | read,write,edit,bash | Implement code in small verified slices |
+| `reviewer` | default | read,bash,glob,grep | Review diffs for bugs and regressions |
 
 ## Pipelines to Close
 
@@ -276,9 +286,21 @@ All auto-discovered from `.pi/extensions/`:
 | G2 (all) | ✅ | All 3 experiments + extensions shipped |
 | G3.1 | ⬜ | Feature parity audit |
 | G3.2 | ⬜ | Move agentic-workflows dev into pi-star |
-| G3.3 | **✅→⏳ ACTIVE** | Use pi-star to build pi-star — governance + memory layers built |
-| G4.1 | ⬜ | Cost low enough for recursive self-improvement |
-| G4.2 | ⬜ | Harness identifies its own gaps |
+| G3.3 | ✅→**⏳ ACTIVE** | Use pi-star to build pi-star — Layers 3+4+5 built this session |
+| G4 (all) | ⬜ | Self-improvement loop |
+
+## Architecture — Complete
+
+```
+Pi core (<500 tokens system prompt)
+├── Layer 1: Multi-model routing (cost-router)                    ✅
+├── Layer 2: Quality (lean-lsp, git-safe)                          ✅
+├── Layer 3: Governance (governance-layer)                         ✅
+├── Layer 4: Memory (memory-layer)                                 ✅
+└── Layer 5: Sub-agents (subagent-layer + 4 agents)                ✅
+```
+
+All 5 architecture layers are now implemented.
 
 ## Commands to Continue
 

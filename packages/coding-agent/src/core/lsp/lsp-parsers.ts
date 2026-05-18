@@ -90,6 +90,28 @@ export function parseShellcheckOutput(stdout: string): Diagnostic[] {
 	}
 }
 
+// ── Go vet parser ──
+
+const GO_VET_LINE = /^(?:[\w-]+:\s*)?(?:\.\/)?([^:\s]+):(\d+):(\d+):\s*(.+)$/;
+
+export function parseGoVetOutput(stdout: string): Diagnostic[] {
+	const diagnostics: Diagnostic[] = [];
+	for (const line of stdout.split("\n")) {
+		if (line.startsWith("#") || line.startsWith("go: ")) continue;
+		const match = line.match(GO_VET_LINE);
+		if (match) {
+			diagnostics.push({
+				file: match[1].trim(),
+				line: parseInt(match[2]),
+				column: parseInt(match[3]),
+				message: match[4],
+				severity: "error",
+			});
+		}
+	}
+	return diagnostics;
+}
+
 // ── Diagnostics formatting ──
 
 export function formatDiagnostics(diagnostics: Diagnostic[]): string {
@@ -114,9 +136,10 @@ export function formatDiagnostics(diagnostics: Diagnostic[]): string {
 
 // ── File type detection ──
 
-export function detectLspRunner(filePath: string): "pyright" | "tsc" | "shellcheck" | null {
+export function detectLspRunner(filePath: string): "pyright" | "tsc" | "shellcheck" | "govet" | null {
 	if (filePath.endsWith(".py")) return "pyright";
 	if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) return "tsc";
 	if (filePath.endsWith(".sh") || filePath.endsWith(".bash")) return "shellcheck";
+	if (filePath.endsWith(".go")) return "govet";
 	return null;
 }

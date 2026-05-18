@@ -9,6 +9,7 @@
  *   - Python  → pyright --outputjson
  *   - TypeScript → tsc --noEmit
  *   - Shell   → shellcheck -f json
+ *   - Go      → go vet
  *
  * Design:
  *   - Errors only (no warnings, no hints)
@@ -102,6 +103,29 @@ function parseShellcheckOutput(stdout: string): Diagnostic[] {
 	}
 }
 
+function parseGoVetOutput(stdout: string): Diagnostic[] {
+	const diagnostics: Diagnostic[] = [];
+	// Matches: [tool:] file:line:col: message
+	// Examples:
+	//   vet: ./foo.go:8:6: invalid operation
+	//   ./foo.go:12:2: undefined: x
+	const GO_VET_RE = /^(?:[\w-]+:\s*)?(?:\.\/)?([^:\s]+):(\d+):(\d+):\s*(.+)$/;
+	for (const line of stdout.split("\n")) {
+		if (line.startsWith("#") || line.startsWith("go: ")) continue; // skip package/comments
+		const m = line.match(GO_VET_RE);
+		if (m) {
+			diagnostics.push({
+				file: m[1].trim(),
+				line: parseInt(m[2]),
+				column: parseInt(m[3]),
+				message: m[4],
+				severity: "error",
+			});
+		}
+	}
+	return diagnostics;
+}
+
 function formatDiagnostics(diagnostics: Diagnostic[]): string {
 	if (diagnostics.length === 0) return "";
 	const lines: string[] = ["── LSP diagnostics ──"];
@@ -117,10 +141,11 @@ function formatDiagnostics(diagnostics: Diagnostic[]): string {
 	return lines.join("\n");
 }
 
-function detectRunner(filePath: string): "pyright" | "tsc" | "shellcheck" | null {
+function detectRunner(filePath: string): "pyright" | "tsc" | "shellcheck" | "govet" | null {
 	if (filePath.endsWith(".py")) return "pyright";
 	if (filePath.endsWith(".ts") || filePath.endsWith(".tsx")) return "tsc";
 	if (filePath.endsWith(".sh") || filePath.endsWith(".bash")) return "shellcheck";
+	if (filePath.endsWith(".go")) return "govet";
 	return null;
 }
 
@@ -146,6 +171,12 @@ async function runShellcheck(filePath: string, pi: ExtensionAPI) {
 	return parseShellcheckOutput(r.stdout);
 }
 
+async function runGoVet(filePath: string, pi: ExtensionAPI) {
+	const r = await pi.exec("go", ["vet", filePath], { timeout: 15_000 });
+	if (r.code === 0) return [];
+	return parseGoVetOutput(r.stdout || r.stderr);
+}
+
 // ============================================================================
 // Extension entry point
 // ============================================================================
@@ -165,7 +196,9 @@ export default function leanLspExtension(pi: ExtensionAPI) {
 				? await runPyright(filePath, pi)
 				: runner === "tsc"
 					? await runTsc(filePath, pi)
-					: await runShellcheck(filePath, pi);
+					: runner === "shellcheck"
+						? await runShellcheck(filePath, pi)
+						: await runGoVet(filePath, pi);
 
 		if (!diagnostics?.length) return;
 

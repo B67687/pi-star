@@ -100,7 +100,26 @@ Do NOT implement formal architect/editor split. The cost-aware router extension
 - No automatic routing — relies on agent/user to switch modes
 - Extension-based (G2.3): shippable without pi-star core modifications
 
-### 5. agentic-workflows Methodology Updates
+### 5. Sequential-Thinking MCP Extension (NEW ✅)
+- File: `.pi/extensions/sequential-thinking.ts` + `~/.pi/agent/extensions/sequential-thinking.ts`
+- Registers `sequential-thinking` as an LLM-callable tool via `registerTool()`
+- Spawns the @modelcontextprotocol/server-sequential-thinking MCP server as a subprocess
+- Communicates via JSON-RPC over stdio (proper MCP client implementation)
+- Lazily starts the server on first tool call, keeps alive for the session
+- Cleans up the subprocess on session_shutdown
+- Graceful fallback to native reasoning if MCP server is unavailable
+- Full TypeBox parameter schema matching the MCP tool's interface
+
+### 6. MCP vs CoT Experiment (COMPLETE ✅)
+- `research/mcp-vs-cot/` — 3 tasks × 2 arms (CoT vs sequential-thinking MCP)
+- Tasks: Plugin System Design, Error Handling Audit, Benchmark Pattern Synthesis
+- **Verdict**: MCP (sequential-thinking) wins for complex analysis/synthesis tasks
+  - T1 (creative design): MCP moderate advantage — forced alternative evaluation + self-correction
+  - T2 (systematic audit): Tie — same issues found, MCP better severity classification
+  - T3 (synthesis): MCP significant advantage — 4x more meta-patterns, systematic gap analysis
+- Recommendation: Add MCP support to Pi-Star for structured reasoning; use selectively by task type
+
+### 7. agentic-workflows Methodology Updates
 - PR at https://github.com/B67687/agentic-workflows/pull/8
 - s4 branch merged (decision pipeline, autonomy gate, session dashboard, error cooldown)
 - `scripts/session-state-populate.sh` — auto-populates session-state.json

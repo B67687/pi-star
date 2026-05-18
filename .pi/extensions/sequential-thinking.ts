@@ -1,9 +1,14 @@
 /**
  * Sequential-Thinking MCP Extension
  *
- * Registers the sequential-thinking tool as an LLM-callable tool in Pi-Star.
+ * Registers the "sequential-thinking" tool as an LLM-callable tool in Pi-Star.
  * The tool delegates to the @modelcontextprotocol/server-sequential-thinking MCP
  * server over stdio, providing structured reasoning capabilities to the agent.
+ *
+ * NOTE: The MCP server registers the tool internally as "sequentialthinking"
+ * (no hyphen). The pi-star tool is named "sequential-thinking" (with hyphen)
+ * for consistency with the MCP package name and agent prompt guidelines.
+ * The extension translates between the two names in the execute() function.
  *
  * Based on experimental evidence (research/mcp-vs-cot/):
  *   - MCP (sequential-thinking) significantly improves analysis/synthesis tasks
@@ -190,7 +195,17 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<st
 
 	const content = (result as any)?.content as Array<{ type: string; text?: string }> | undefined;
 	if (content && Array.isArray(content)) {
-		return content.map((c) => c.text ?? "").join("\n");
+		const text = content.map((c) => c.text ?? "").join("\n");
+		// If the MCP server returned a JSON object as text, try to present it nicely
+		if (text.startsWith("{") || text.startsWith("[")) {
+			try {
+				const parsed = JSON.parse(text);
+				return JSON.stringify(parsed, null, 2);
+			} catch {
+				return text;
+			}
+		}
+		return text;
 	}
 
 	return JSON.stringify(result, null, 2);
@@ -281,7 +296,8 @@ const sequentialThinkingTool = {
 		_ctx: Record<string, unknown>,
 	): Promise<{ content: Array<{ type: string; text: string }>; details: unknown }> => {
 		try {
-			const resultText = await callTool("sequential-thinking", params);
+			// Note: MCP server registers the tool as "sequentialthinking" (no hyphen)
+	const resultText = await callTool("sequentialthinking", params);
 			return { content: [{ type: "text", text: resultText }], details: {} };
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);

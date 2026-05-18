@@ -2,25 +2,45 @@ import type {
 	ExtensionAPI,
 	SessionBeforeSwitchEvent,
 	SessionMessageEntry,
-} from "@mariozechner/pi-coding-agent";
+} from "@b67687/pi-star-coding-agent";
 
 export default function (pi: ExtensionAPI) {
+	// Note: patterns are case-sensitive, tested against lowercased command.
+	// This avoids false matches on flag case (e.g., -D vs -d).
 	const dangerousCommandPatterns = [
-		/\brm\s+(-rf?|--recursive)\b/i,
-		/\bsudo\b/i,
-		/\bgit\s+reset\s+--hard\b/i,
-		/\bgit\s+clean\b.*\b-f\b/i,
-		/\bgit\s+checkout\s+--\b/i,
-		/\b(chmod|chown)\b.*777\b/i,
-		/\bmkfs\b/i,
-		/\bdd\b/i,
+		// Destructive file operations
+		/\brm\s+(-rf?|--recursive)\b/,
+		/\bfind\s+.*-delete\b/,
+		/\bsudo\b/,
+		// Git history destruction
+		/\bgit\s+reset\s+--hard\b/,
+		/\bgit\s+clean\b.*-f\b/,
+		/\bgit\s+checkout\s+--\b/,
+		/\bgit\s+push\s+.*(--force|--force-with-lease)\b/,
+		// Note: git branch -D is checked separately (case-sensitive vs -d)
+		// System destructive
+		/\b(chmod|chown)\b.*777\b/,
+		/\bmkfs\b/,
+		/\bdd\b/,
+		// Docker destructive
+		/\bdocker\s+system\s+prune\b/,
+		/\bdocker\s+volume\s+rm\b/,
+		/\bdocker\s+rm\s+.*(-f|--force)\b/,
 	];
 
 	const protectedPathPatterns = [
+		// Git internals
 		/\/\.git(\/|$)/,
+		/\/\.gitconfig$/,
+		/\/\.git-credentials$/,
+		// Dependencies (auto-managed)
 		/\/node_modules(\/|$)/,
-		/\/\.env(\.|$|\/)?/,
+		/\/package-lock\.json$/,
+		/\/Cargo\.lock$/,
+		// Secrets and credentials
+		/\/\.env(?:$|[\/.]\w+)/,
 		/\/auth\.json$/,
+		/\/\.ssh(\/|$)/,
 		/\/id_[^/]+$/,
 		/\/.*\.pem$/,
 		/\/.*\.key$/,
@@ -29,10 +49,17 @@ export default function (pi: ExtensionAPI) {
 	pi.on("tool_call", async (event, ctx) => {
 		if (event.toolName === "bash") {
 			const command = String(event.input.command ?? "");
-			const dangerous = dangerousCommandPatterns.some((pattern) => pattern.test(command));
-			if (!dangerous) return undefined;
+			const lowerCommand = command.toLowerCase();
+			const matchesLower = dangerousCommandPatterns.some((pattern) => pattern.test(lowerCommand));
+			// git branch -D (uppercase = force delete) must be checked case-sensitively
+			// to avoid blocking safe git branch -d
+			const matchesForceDelete =
+				/\bgit\s+branch\s+--delete\b/i.test(command) || // --delete is always force
+				/\bgit\s+branch\s+-D\b/.test(command); // -D must be uppercase
+			if (!matchesLower && !matchesForceDelete) return undefined;
 
 			if (!ctx.hasUI) {
+				console.error(`[workflow-guard] Blocked dangerous command: ${command}`);
 				return { block: true, reason: "Dangerous command blocked without interactive confirmation" };
 			}
 
@@ -55,6 +82,8 @@ export default function (pi: ExtensionAPI) {
 
 			if (ctx.hasUI) {
 				ctx.ui.notify(`Blocked write to protected path: ${path}`, "warning");
+			} else {
+				console.error(`[workflow-guard] Blocked write to protected path: ${path}`);
 			}
 
 			return { block: true, reason: `Protected path: ${path}` };

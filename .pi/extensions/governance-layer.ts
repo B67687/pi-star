@@ -461,7 +461,15 @@ research → plan → implement → verify phase discipline.
 - **Decomposition gate**: transitioning from plan→implement requires a valid milestone ladder.
   Document your decomposition with \`/milestone-ladder init\` before calling \`set-phase implement\`.
 - After implementation, verification is required before new work.
-- The initial phase is auto-detected from your task description.`;
+- The initial phase is auto-detected from your task description.
+
+### Determinism Framework
+**Core rule**: If a question has a verifiable right answer, make it deterministic.
+The litmus test: *"Same input → same output?"* If yes, script it. If no,
+use a deliberative step. All gates and checks are deterministic by design.
+Deliberative steps exist for judgment calls only (architecture, priority,
+tradeoffs). See \`docs/determinism-framework.md\` (agentic-workflows) for
+the full classification table.`;
 
 // ============================================================================
 // Initial phase auto-detection

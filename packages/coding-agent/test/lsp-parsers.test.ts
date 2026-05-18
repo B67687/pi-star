@@ -216,7 +216,7 @@ describe("parseGoVetOutput", () => {
 	it("should parse a standard go vet error", () => {
 		const output = [
 			"# command-line-arguments",
-			"vet: ./main.go:8:6: invalid operation: x + \"hello\" (mismatched types int and untyped string)",
+			'vet: ./main.go:8:6: invalid operation: x + "hello" (mismatched types int and untyped string)',
 		].join("\n");
 		const result = parseGoVetOutput(output);
 		expect(result).toHaveLength(1);
@@ -228,10 +228,7 @@ describe("parseGoVetOutput", () => {
 	});
 
 	it("should skip package header lines starting with #", () => {
-		const output = [
-			"# my/package/path",
-			"vet: ./util.go:3:2: undefined: X",
-		].join("\n");
+		const output = ["# my/package/path", "vet: ./util.go:3:2: undefined: X"].join("\n");
 		const result = parseGoVetOutput(output);
 		expect(result).toHaveLength(1);
 		expect(result[0].line).toBe(3);
@@ -284,11 +281,19 @@ describe("parseCargoCheckOutput", () => {
 		const output = [
 			JSON.stringify({
 				reason: "compiler-message",
-				message: { level: "error", message: "Type error", spans: [{ file_name: "src/main.rs", line_start: 1, column_start: 1 }] },
+				message: {
+					level: "error",
+					message: "Type error",
+					spans: [{ file_name: "src/main.rs", line_start: 1, column_start: 1 }],
+				},
 			}),
 			JSON.stringify({
 				reason: "compiler-message",
-				message: { level: "warning", message: "Unused variable", spans: [{ file_name: "src/main.rs", line_start: 2, column_start: 1 }] },
+				message: {
+					level: "warning",
+					message: "Unused variable",
+					spans: [{ file_name: "src/main.rs", line_start: 2, column_start: 1 }],
+				},
 			}),
 		].join("\n");
 		const result = parseCargoCheckOutput(output, "src/main.rs");
@@ -300,11 +305,19 @@ describe("parseCargoCheckOutput", () => {
 		const output = [
 			JSON.stringify({
 				reason: "compiler-message",
-				message: { level: "error", message: "Err in main", spans: [{ file_name: "src/main.rs", line_start: 1, column_start: 1 }] },
+				message: {
+					level: "error",
+					message: "Err in main",
+					spans: [{ file_name: "src/main.rs", line_start: 1, column_start: 1 }],
+				},
 			}),
 			JSON.stringify({
 				reason: "compiler-message",
-				message: { level: "error", message: "Err in lib", spans: [{ file_name: "src/lib.rs", line_start: 3, column_start: 5 }] },
+				message: {
+					level: "error",
+					message: "Err in lib",
+					spans: [{ file_name: "src/lib.rs", line_start: 3, column_start: 5 }],
+				},
 			}),
 		].join("\n");
 		const result = parseCargoCheckOutput(output, "src/main.rs");
@@ -318,7 +331,11 @@ describe("parseCargoCheckOutput", () => {
 			JSON.stringify({ reason: "build-finished", success: false }),
 			JSON.stringify({
 				reason: "compiler-message",
-				message: { level: "error", message: "Real error", spans: [{ file_name: "src/main.rs", line_start: 1, column_start: 1 }] },
+				message: {
+					level: "error",
+					message: "Real error",
+					spans: [{ file_name: "src/main.rs", line_start: 1, column_start: 1 }],
+				},
 			}),
 		].join("\n");
 		const result = parseCargoCheckOutput(output, "src/main.rs");

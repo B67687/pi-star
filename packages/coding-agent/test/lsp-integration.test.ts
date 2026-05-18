@@ -1,13 +1,9 @@
 import { execSync } from "node:child_process";
-import { mkdtempSync, unlinkSync, writeFileSync } from "node:fs";
+import { unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-	parsePyrightOutput,
-	parseShellcheckOutput,
-	parseTscOutput,
-} from "../src/core/lsp/lsp-parsers.js";
+import { parsePyrightOutput, parseShellcheckOutput, parseTscOutput } from "../src/core/lsp/lsp-parsers.js";
 
 /**
  * Integration tests that run the actual CLI diagnostic tools (pyright, tsc, shellcheck)
@@ -15,18 +11,30 @@ import {
  */
 
 const hasPyright = (() => {
-	try { execSync("pyright --version", { stdio: "ignore" }); return true; }
-	catch { return false; }
+	try {
+		execSync("pyright --version", { stdio: "ignore" });
+		return true;
+	} catch {
+		return false;
+	}
 })();
 
 const hasTsc = (() => {
-	try { execSync("tsc --version", { stdio: "ignore" }); return true; }
-	catch { return false; }
+	try {
+		execSync("tsc --version", { stdio: "ignore" });
+		return true;
+	} catch {
+		return false;
+	}
 })();
 
 const hasShellcheck = (() => {
-	try { execSync("shellcheck --version", { stdio: "ignore" }); return true; }
-	catch { return false; }
+	try {
+		execSync("shellcheck --version", { stdio: "ignore" });
+		return true;
+	} catch {
+		return false;
+	}
 })();
 
 // ── Helpers ──
@@ -55,7 +63,11 @@ function runTool(cmd: string, timeout: number): string {
 
 afterEach(() => {
 	for (const f of tempFiles) {
-		try { unlinkSync(f); } catch { /* skip */ }
+		try {
+			unlinkSync(f);
+		} catch {
+			/* skip */
+		}
 	}
 	tempFiles = [];
 });
@@ -66,14 +78,17 @@ afterEach(() => {
 
 describe.runIf(hasPyright)("pyright integration", () => {
 	it("should detect type mismatch error", () => {
-		const file = writeTempFile("test.py", [
-			"def greet(name: str) -> str:",
-			'    return "Hello, " + name',
-			"",
-			"def main() -> None:",
-			"    result = greet(42)  # type error",
-			"    print(result)",
-		].join("\n"));
+		const file = writeTempFile(
+			"test.py",
+			[
+				"def greet(name: str) -> str:",
+				'    return "Hello, " + name',
+				"",
+				"def main() -> None:",
+				"    result = greet(42)  # type error",
+				"    print(result)",
+			].join("\n"),
+		);
 
 		const output = runTool(`pyright --outputjson "${file}"`, 10_000);
 		const diagnostics = parsePyrightOutput(output, file);
@@ -83,12 +98,10 @@ describe.runIf(hasPyright)("pyright integration", () => {
 	});
 
 	it("should return no errors for correct code", () => {
-		const file = writeTempFile("correct.py", [
-			"def greet(name: str) -> str:",
-			'    return "Hello, " + name',
-			"",
-			"print(greet('World'))",
-		].join("\n"));
+		const file = writeTempFile(
+			"correct.py",
+			["def greet(name: str) -> str:", '    return "Hello, " + name', "", "print(greet('World'))"].join("\n"),
+		);
 
 		const output = runTool(`pyright --outputjson "${file}"`, 10_000);
 		const diagnostics = parsePyrightOutput(output, file);
@@ -96,10 +109,10 @@ describe.runIf(hasPyright)("pyright integration", () => {
 	});
 
 	it("should detect undefined variable", () => {
-		const file = writeTempFile("undefined.py", [
-			"def calc(price: float) -> float:",
-			"    return price - discont  # typo: should be 'discount'",
-		].join("\n"));
+		const file = writeTempFile(
+			"undefined.py",
+			["def calc(price: float) -> float:", "    return price - discont  # typo: should be 'discount'"].join("\n"),
+		);
 
 		const output = runTool(`pyright --outputjson "${file}"`, 10_000);
 		const diagnostics = parsePyrightOutput(output, file);
@@ -118,9 +131,7 @@ describe.runIf(hasTsc)("tsc integration", () => {
 		const dir = join(tmpdir(), "tsc-test-" + Math.random().toString(36).slice(2));
 		writeFileSync(dir, "", "utf-8");
 
-		const file = writeTempFile("error.ts", [
-			"const x: number = 'hello';  // type error",
-		].join("\n"));
+		const file = writeTempFile("error.ts", ["const x: number = 'hello';  // type error"].join("\n"));
 
 		const output = runTool(`tsc --noEmit --pretty false --ignoreConfig --strict "${file}"`, 15_000);
 		const diagnostics = parseTscOutput(output);
@@ -136,14 +147,13 @@ describe.runIf(hasTsc)("tsc integration", () => {
 
 describe.runIf(hasShellcheck)("shellcheck integration", () => {
 	it("should detect unquoted variable", () => {
-		const file = writeTempFile("test.sh", [
-			"#!/usr/bin/env bash",
-			'echo "Entering directory $1"',
-			"ls $1  # SC2086: unquoted",
-		].join("\n"));
+		const file = writeTempFile(
+			"test.sh",
+			["#!/usr/bin/env bash", 'echo "Entering directory $1"', "ls $1  # SC2086: unquoted"].join("\n"),
+		);
 
 		const output = runTool(`shellcheck -f json "${file}"`, 10_000);
-		const diagnostics = parseShellcheckOutput(output);
+		const _diagnostics = parseShellcheckOutput(output);
 
 		// SC2086 is 'info' level in ShellCheck, not 'error'
 		// Our parser only returns errors by design. Verify the raw JSON
@@ -152,11 +162,7 @@ describe.runIf(hasShellcheck)("shellcheck integration", () => {
 	});
 
 	it("should return no errors for clean shell script", () => {
-		const file = writeTempFile("clean.sh", [
-			"#!/usr/bin/env bash",
-			'echo "Hello, $1"',
-			'ls "$1"',
-		].join("\n"));
+		const file = writeTempFile("clean.sh", ["#!/usr/bin/env bash", 'echo "Hello, $1"', 'ls "$1"'].join("\n"));
 
 		const output = runTool(`shellcheck -f json "${file}"`, 10_000);
 		const diagnostics = parseShellcheckOutput(output);

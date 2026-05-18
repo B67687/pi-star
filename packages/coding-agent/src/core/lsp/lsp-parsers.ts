@@ -52,8 +52,8 @@ export function parseTscOutput(stdout: string): Diagnostic[] {
 		if (match) {
 			diagnostics.push({
 				file: match[1].trim(),
-				line: parseInt(match[2]),
-				column: parseInt(match[3]),
+				line: parseInt(match[2], 10),
+				column: parseInt(match[3], 10),
 				message: `${match[5]}: ${match[6]}`,
 				severity: match[4] as "error" | "warning",
 			});
@@ -102,8 +102,8 @@ export function parseGoVetOutput(stdout: string): Diagnostic[] {
 		if (match) {
 			diagnostics.push({
 				file: match[1].trim(),
-				line: parseInt(match[2]),
-				column: parseInt(match[3]),
+				line: parseInt(match[2], 10),
+				column: parseInt(match[3], 10),
 				message: match[4],
 				severity: "error",
 			});

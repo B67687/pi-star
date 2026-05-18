@@ -22,24 +22,35 @@ When the request is clear enough and risk is low, proactively:
 - **Direction B (agent needs info -> user):** Use structured format: header, question, options with 1-line descriptions and a recommendation, why this matters, what comes next. Give a clear default. Ask one question at a time.
 - **Never guess** when 1 question to the user resolves the ambiguity.
 
-## Startup Order
+## Startup Order (Enforced)
 
-1. `workflow-state.json` --- active workflow state; read first on every resume
-2. Lifecycle hooks run automatically:
-   - `bash ./scripts/hooks/session-start.sh` --- branch, recent commits, state health, constitution status
-   - `bash ./scripts/hooks/detect-gaps.sh` --- stale indexes, missing state, drift
-3. `AGENTS.md` --- this operating contract
-4. `constitution.md` --- immutable governing principles with enforceable article gates
-5. `docs/workflow.md` --- fast orientation
-6. Task-specific files only when needed
+The following MUST execute in order before any user-facing output or conversation begins:
 
-For topic-folder work: root `workflow-state.json` (or `session-state.json` for backward compat), then lifecycle hooks, then `AGENTS.md`, then `docs/workflow.md`.
+1. **Run gate:** `bash ./scripts/hooks/session-start.sh`
+   - This runs all lifecycle hooks + the workflow startup gate
+   - **Read its output.** It prints `WORKFLOW_ACTIVE=true|false` and the current workflow state.
+   - If `WORKFLOW_ACTIVE=true`: resume the current workflow at its active step. Do NOT re-classify.
+   - If `WORKFLOW_ACTIVE=false`: **you must classify the user's request** before any work begins. Use the available workflows listed by the gate. This is not optional.
+   - If the file is missing or corrupt: the gate resets it. Classify from root.
+
+2. **Read** `AGENTS.md` — this operating contract.
+
+3. **Read** `constitution.md` — immutable governing principles with enforceable article gates.
+
+4. **Read** `docs/workflow.md` — fast orientation for workflow-driven execution.
+
+5. **Task-specific files** only when needed.
+
+**One task per session.** When phase/topic shifts or the thread gets long, checkpoint and restart fresh. The startup gate will detect the fresh state and guide re-classification.
+
+**Violation handling:** If you skip the startup gate or proceed without classifying when `WORKFLOW_ACTIVE=false`, you are violating the operating contract. Stop, re-run the gate, and classify.
 
 ## Workflow-Driven Execution
 
 The workflow runtime manages task execution as a state machine. Workflow definitions live in `workflow.d/`. State persists in `workflow-state.json`.
 
 1. **Session start.** Read `workflow-state.json`. If a workflow is active, load the definition from `workflow.d/<id>.yaml` and resume at the current step.
+   - **Stale check:** If the trace is empty, the context is from a clearly different session, or the user's first request is unrelated to the active workflow → mark it complete, reset `workflow-state.json`, and re-classify from root.
 2. **No active workflow?** Read `workflow.d/root.yaml`, run the `classify` step to route the user's request.
 3. **Deterministic steps.** Run the script from `script:` field. Capture stdout as step result. Advance to next step.
 4. **Deliberative steps.** Reason, propose options, back and forth with user until consensus. Advance on agreement.
@@ -87,6 +98,9 @@ Deterministic steps run automatically. Deliberative steps require user engagemen
 - **Read code diffs, not plan files.** After implementation, review the actual diff (`git diff`), not a plan document or summary. The diff is truth; plans are intentions.
 - **Test with real-world inputs first.** Before writing unit tests or hypothetical scenarios, run the actual command, hit the real endpoint, reproduce the bug with real data. Theoretical tests come after.
 - **Respect the instruction budget.** Workflow definitions: <40 instructions each. AGENTS.md: target ~150 lines. If either grows beyond, flag it for compression.
+- **Deliberative steps are conversations, not broadcasts.** On a deliberative step, engage back and forth with the user until consensus. Propose options with clear defaults. Do not advance until the user confirms.
+- **Questions are the intentional split.** When a step or user asks a question, do not treat it as uncertainty. Questions decompose the problem. Answer precisely, then proceed. See `skills/clarification-protocol/SKILL.md`.
+- **Trust deterministic steps.** When a step has `kind: deterministic` and a script, run it and capture stdout as the result. Do not read the script first, do not second-guess it, do not inspect its internals. The script is the authority. If it fails, capture the error and let the workflow branch or retry.
 
 ## Structure Rules
 
@@ -116,64 +130,7 @@ Use `docs/repo-quality-analysis-protocol.md` before deleting or merging files. S
 
 ## Deep References
 
-| Topic | Reference |
-|-------|-----------|
-| Workflow and routing | `docs/workflow.md`, `workflow.d/SCHEMA.md` |
-| Agentic behavior rules | moved to `docs/workflow.md` |
-| Skills reference | `skills/`, `docs/agent-skills/`, `scripts/skill-toolset.sh` |
-| Model selection and fallbacks | `docs/model-selection-guide.md` |
-| Token/context efficiency | `docs/token-efficient-prompting.md` |
-| Session checkpoints and recovery | `docs/session-checkpoint.md`, `docs/session-recovery-guide.md` |
-| Assumption expiry (upwards management) | `docs/assumption-expiry.md`, `scripts/assumption-expiry.sh` |
-| Agent-human interaction patterns | `docs/agent-human-interaction.md` |
-| Agent-to-agent (A2A) protocol | `docs/a2a-protocol.md` |
-| Agent context handover guide | `docs/agent-context-handover.md` |
-| Multi-agent debate (Parley) | `docs/parley-system.md` |
-| Cross-project memory loop | `docs/cross-project-memory-loop.md` |
-| Memory architecture | `docs/learnings-strategy.md` (3-store system: learnings.jsonl, agentmemory MCP, ruflo) |
-| Domain language glossary | `docs/context-format.md` |
-| Visual language spec | `docs/design-md-pattern.md` |
-| Fast / stable delivery patterns | `docs/fast-stable-delivery.md` |
-| Free-tier agentic coding guide | `docs/free-tier-agentic-guide.md` |
-| Quality standards | `docs/quality-standards.md` |
-| GitHub best practices | `docs/git-github-best-practices.md` |
-| MCP architecture reference | `docs/mcp-architecture.md` |
-| Prompt templates library | `docs/prompt-templates.md`, `docs/prompt-library/` |
-| Counsel model selection | `docs/counsel-model-selection.md` |
-| Requirements alignment | `skills/grill-me/SKILL.md` |
-| Structured questioning | `skills/structured-questioning/SKILL.md` |
-| Skill design patterns | `docs/skill-design-patterns.md` |
-| Bash-hybrid exploration | `skills/bash-explore/SKILL.md` |
-| BM25 workspace search | `scripts/search-index.sh` |
-| Repo map (tree-sitter) | `scripts/repo-map.sh` |
-| Project rollout template | `docs/project-rollout-template.md` |
-| Agent sandbox | `docs/agent-sandbox.md`, `scripts/agent-sandbox.sh` |
-| Provider runtime notes | `docs/provider-runtime.md` |
-| Daily prompts | `docs/daily-prompts.md` |
-| AI product building with agents | `docs/ai-product-building.md` |
-| TDD with agents | `docs/tdd-with-agents.md` |
-| Retrieval policy | `docs/retrieval-policy.md` |
-| Source citation workflow | `workflow/source-citation.md` |
-| Memory consolidation workflow | `workflow/memory-consolidation.md` |
-| Unified memory query | `scripts/memory-query.sh` |
-| 12-Factor Agents principles map | `docs/12-factor-agents-integration.md` |
-| A2H (Agent-to-Human) protocol | `drafts/a2h-spec.md` in [humanlayer/12-factor-agents](https://github.com/humanlayer/12-factor-agents) |
-| Agent-to-Human contact tool | `scripts/a2h-contact.sh` |
-| Error counter with escalation | `scripts/error-counter.sh` |
-| Deterministic context pre-fetch | `scripts/prefetch-context.sh` |
-| XML-style context retrieval | `scripts/retrieve-context.sh --xml` |
-| 12-factor agent scaffold | `scripts/create-hl-agent.sh` |
-| Learnings strategy (three-store system) | `docs/learnings-strategy.md` |
-| Hub quickstart (full index) | `docs/hub-quickstart.md` |
-| Cognitive surrender research and evidence | `research/cognitive-surrender-research.md` |
-| System architecture research | `research/well-maintained-system-research.md` |
-| Agent coding rules (common) | `rules/common/` (coding-style, security, git-workflow, testing) |
-| Agent coding rules (language) | `rules/typescript/patterns.md`, `rules/python/patterns.md` |
-| Structural governance | `docs/structural-governance.md` |
-| TAP project memory | `.tap/README.md` (`tap-audit`, `systems-health`, `retrospective`, `curate-product-context`) |
-| Superseded design docs | `archive/superseded/` (core-agent-doctrine, phase-based, etc.) |
-| Bug memory | `buglog.json` in project root |
-| Do-not-repeat | inline in `session-state.json` under `doNotRepeat` key |
+See `docs/deep-references.md` for the full table of all skills, scripts, docs, and governance links.
 
 <!-- swarmvault:managed:start -->
 # SwarmVault Rules

@@ -248,10 +248,7 @@ describe("AI Providers Empty Message Tests", () => {
 	});
 
 	describe.skipIf(!process.env.XAI_API_KEY)("xAI Provider Empty Messages", () => {
-		const llm = getModel(
-			"xai",
-			"grok-3" | "grok-3-fast" | "grok-4.20-0309-non-reasoning" | "grok-4.20-0309-reasoning",
-		);
+		const llm = getModel("xai", "grok-3-fast");
 
 		it("should handle empty content array", { retry: 3, timeout: 30000 }, async () => {
 			await testEmptyMessage(llm);

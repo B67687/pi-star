@@ -1,0 +1,39 @@
+{
+  "title": "Architect/Editor Model Routing Benchmark",
+  "description": "Compares three routing strategies: cheap model only, expensive model only, and architect-editor split. Measures success rate, token cost, and time.",
+  "modes": {
+    "cheap": { "model": "deepseek-v4-flash", "description": "Cheap model does everything" },
+    "expensive": { "model": "deepseek-v4-pro", "description": "Expensive model does everything" },
+    "architect_editor": {
+      "architect_model": "deepseek-v4-pro",
+      "editor_model": "deepseek-v4-flash",
+      "description": "Pro plans approach, Flash implements"
+    }
+  },
+  "tasks": [
+    {
+      "id": "t01",
+      "file": "py/cache-decorator",
+      "language": "python",
+      "prompt": "Implement a function cache decorator in Python. The public interface MUST be:\n\n```python\n@disk_cache(cache_dir=\"./cache\", ttl=3600)\ndef my_function(x: int) -> int: ...\n\n# Or as a class\ncache = DiskCache(cache_dir=\"./cache\", ttl=3600)\n@cache\ndef another_function(x: int) -> int: ...\n```\n\nRequirements:\n- Wraps any function with disk-backed cache\n- Cache key: function name + repr(args) + repr(kwargs), hashed for filename safety\n- Cache files are JSON, stored in cache_dir\n- TTL in seconds (ttl=0 means no expiry)\n- Handles unhashable args (lists, dicts) via repr()\n- Thread-safe via threading.Lock\n- Cache.clear() method to invalidate\n- No external deps, standard library only\n\nThis IS the cache_decorator.py file. Write the full implementation module with disk_cache decorator and DiskCache class.",
+      "test_file": "py/cache-decorator/test.py",
+      "spec": "py/cache-decorator/spec.md"
+    },
+    {
+      "id": "t02",
+      "file": "ts/event-emitter",
+      "language": "typescript",
+      "prompt": "Implement a typed event emitter in TypeScript that:\n- Supports typed events via generics: EventEmitter<Events>\n- Events map: on, off, emit, once\n- Wildcard listener '*' catches all events\n- Listener count tracking per event\n- Error handling: one listener failing doesn't stop others\n- RemoveAll method to clear all listeners for an event or all events\n\nWrite to event-emitter.ts",
+      "test_file": "ts/event-emitter/test.ts",
+      "spec": "ts/event-emitter/spec.md"
+    },
+    {
+      "id": "t03",
+      "file": "py/config-parser",
+      "language": "python",
+      "prompt": "Implement a configuration file parser in Python that:\n- Parses a custom config format: KEY=VALUE and [SECTION] headers\n- Supports comments (#) and blank lines\n- Nested section access: config.get('section.key')\n- Type coercion: auto-detect booleans (true/false), integers, floats\n- Environment variable expansion: $VAR or ${VAR}\n- Merging: load multiple files, later files override earlier ones\n- Write errors to a log instead of crashing on malformed lines\n\nWrite to config_parser.py",
+      "test_file": "py/config-parser/test.py",
+      "spec": "py/config-parser/spec.md"
+    }
+  ]
+}

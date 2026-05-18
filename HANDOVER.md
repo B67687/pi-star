@@ -1,4 +1,4 @@
-# Pi-Star Session Handover
+# Session Handover — 2026-05-18
 
 ## North Star
 
@@ -10,84 +10,69 @@
 and harden concepts there first, then port patterns to Pi-Star's extension
 architecture. Goal: strengthen both until Pi-Star can self-iterate, then shift.
 
+<!-- session-data:start -->
 ## Current State
 
-| Repo | Branch | Status |
-|------|--------|--------|
-| pi-star | main | All pushed, 14 extensions live |
-| agentic-workflows | feat/decomposition-enforcement | PR #19 open (ahead of main) |
+| Repo | Branch | Last Commit |
+|------|--------|-------------|
+| agentic-workflows | main | a322b4e feat: add determinism-framework.md — classify all gates and workflow steps |
+| pi-star | main | 0926fb7d docs: add determinism framework to methodology guide |
+
+Changes: 13 modified, 12 untracked
+
+  Workflow: implement  Step: decomposition_check  Trace: 3 entries
+
+## Goal Tree
+
+```
+→ ○ Pi-Star Mastery — best agent harness via research-backed architecture
+  ✓   Goal Tree System — persistent goal tracking (done) [d:1]
+  ✓     Create goal-tree.sh script (done) [d:2]
+  ✓     Session-start hook integration (done) [d:2]
+  ✓     HANDOVER 200-line restructure (done) [d:2]
+  ✓     Port to Pi-Star (done) [d:2]
+  ○   Code Quality — first-time-correct + reiteration [d:1]
+  ○   Change Visibility — TUI diffs, see agent actions [d:1]
+  ○   Reliability — reload-agents, pre-commit gates, maintenance [d:1]
+  ○   Daily Use — real-world hardening, pain points [d:1]
+  ✓   Determinism Framework — classify auto vs deliberate (done) [d:1]
+
+  Path: Pi-Star Mastery — best agent harness via research-backed arc
+```
+
+## Last Session Summary
+
+- current_state: Repo mapped: 859 .md, 772 .json, 288 .sh, 20 .yaml workflow files
+- design_discussion: Consensus reached: JSON+shell, 8-level max (warn 4+), 200-line HANDOVER
+- structure_outline: Structure approved: schema, operations, depth policy, HANDOVER role
+
+## Next
+
+Pi-Star Mastery — best agent harness via research-
 
 ```bash
-# Liveliness
-pi-star --print "hello"    # quick check
-bash scripts/goal-tree.sh current  # see active goal
+# Quick start
+bash scripts/goal-tree.sh current   # see where you are
+bash scripts/goal-tree.sh status    # full tree
+bash scripts/goal-tree.sh branch <parent> "<title>"  # start new work
 ```
 
-## Active Goal Tree
-
-Full tree: `.runtime/goal-tree.json` (agentic-workflows) or
-`~/.pi/runtime/goal-tree.json` (Pi-Star).
+## Recent Commits
 
 ```
-Pi-Star Mastery
-├── Goal Tree System ← ACTIVE (3 remaining subtasks)
-├── Determinism Framework
-├── Code Quality
-├── Change Visibility
-├── Reliability
-└── Daily Use
+  a322b4e feat: add determinism-framework.md — classify all gates and workflow steps
+  8d4e032 feat: add goal-tree.sh — persistent hierarchical goal tracking
+  a2fbef7 feat: add workflow-check — deterministic verification of workflow-state.json
+  208189d feat: add decomposition enforcement gate — milestone ladder before implementation
+  0a916e1 feat: parallel step kind for workflow — research fan-out + verify checks (#18)
 ```
-
-## Last Session (2026-05-18 — B + A + C)
-
-Built across 3 items, all following research→plan→implement→verify:
-
-**B — Decomposition Enforcement** ✅
-- `decomposition-gate.sh`: generate/validate milestone ladders
-- Gate plugin in `phase-gate.sh`, step in `decision-pipeline plan→implement`
-- Ported to Pi-Star: `/milestone-ladder` command, `set-phase` blocks plan→implement
-- Commits: agentic-workflows `208189d`, pi-star `61e275e6`
-
-**A — Workflow Self-Check** ✅
-- `workflow-check.sh`: deterministic validation of `workflow-state.json`
-- `--json` and `--fix` modes, exit codes 0/1/2
-- Ported to Pi-Star: `/workflow-check` command validates governance-state.json
-- Commits: agentic-workflows `a2fbef7`, pi-star on main
-
-**C — Integration Tests** ✅
-- `scripts/pi-star-dry-run-test.ts`: loads all 14 extensions with mock API
-- Caught TDZ bug in governance-layer.ts (`MILESTONE_LADDER_FILE` before `STATE_DIR`)
-- All 14 pass: 24 commands, 8 tools, 20 hooks
-
-**Goal Tree System** ⏳ (this session, in progress)
-- `scripts/goal-tree.sh`: init/branch/close/cancel/status/current
-- Session-start integration: tree path displayed at session start
-- HANDOVER restructured to 200 lines (this file)
-- Remaining: Port to Pi-Star
+<!-- session-data:end -->
 
 ## Key Links
 
-| Doc | Location | Purpose |
-|-----|----------|---------|
-| Goal tree (raw) | `.runtime/goal-tree.json` | Full macro/meso/micro tree |
-| Architecture | `ARCHITECTURE.md` (pi-star) | 5-layer design, 11 tools analyzed |
-| All extensions | `.pi/extensions/*.ts` | 14 total, all 5 layers + utilities |
-| Root workflow | `workflow.d/root.yaml` (agentic-workflows) | Entry point for all work |
-
-## Commands
-
-```bash
-# OpenCode
-bash scripts/goal-tree.sh status     # show full goal tree
-bash scripts/goal-tree.sh current    # active path to root
-bash scripts/goal-tree.sh branch <p> <t>  # branch new sub-goal
-bash scripts/workflow-check.sh       # validate workflow state
-bash scripts/decomposition-gate.sh validate  # check milestone ladder
-
-# Pi-Star
-pi-star --print "hello"
-/phase          # show governance phase
-/milestone-ladder validate  # check decomposition
-/workflow-check             # validate governance state
-/goal-tree status           # show goal tree (when ported)
-```
+| Doc | Location |
+|-----|----------|
+| Goal tree | `.runtime/goal-tree.json` |
+| Workflow state | `workflow-state.json` |
+| Architecture | `ARCHITECTURE.md` (pi-star) |
+| Determinism framework | `docs/determinism-framework.md` |

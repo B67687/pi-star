@@ -5,43 +5,27 @@
 ```
 Read HANDOVER.md for complete context before responding.
 
-Current state: Pi-Star with 10 extensions live (all 5 architecture layers).
+Current state: Pi-Star with 12 extensions live (all 5 architecture layers + 2 utilities).
 All pushed to origin/main. G1.2 — daily use — is active.
 
 The next session should:
 
-1. FIRST FIX: The startup-cycle workflow enforcement.
-   The governance-layer extension has /phase commands but they're TUI-only.
-   In --print mode, the agent doesn't follow research→plan→implement→verify
-   automatically. The agent needs to be steered to follow the cycle.
+1. USE PI-STAR for real daily work in agentic-workflows (extension dev,
+   methodology improvements). Surface all remaining pain points.
+2. Update HANDOVER.md each session to track issues found.
 
-2. THEN RUN: Full cycle for safety guard improvements.
-   Add missing patterns to workflow-guard.ts:
-   - git push --force / --force-with-lease
-   - git branch -D
-   - find ... -delete (mass deletion)
-   - docker system prune -af, docker volume rm
-   - Protected paths: .ssh/, .gitconfig, package-lock.json, Cargo.lock
+Recently completed (2026-05-18 session):
+- ✅ Startup-cycle enforcement: set-phase LLM tool, auto-detect phase, block edits
+- ✅ Safety guards: git push --force, git branch -D, find -delete, docker, protected paths
+- ✅ Tool registry: /tools and /commands commands
+- ✅ Question tool: ask-user LLM tool for inline questions
 
-3. THEN BUILD: Tool registry (e.g. /tools command) so the agent can
-   list what tools and commands are available in the current session.
-
-4. THEN ADDRESS: The questioning gap — there's no LLM-callable tool
-   for asking the user questions. ctx.ui.confirm/select exist in TUI
-   mode but there's no tool the agent can call to ask the user inline.
-
-5. RENDERING: Already researched — pi-star TUI uses `marked` library
-   with full markdown support (headings, bold, italic, code blocks,
-   tables, lists, blockquotes, links, images). LaTeX math ($...$, $$...$$)
-   is NOT supported — raw LaTeX displays as plain text. Worth addressing
-   if it comes up in daily use but not urgent.
-
-6. ACTUAL DAILY USE: After fixing the above, do real work in pi-star
-   and surface all remaining pain points.
+Rendering research is done: pi-star TUI uses `marked` library with full
+markdown support. LaTeX math ($...$) is NOT supported — raw text only.
+Address if it comes up but not urgent.
 
 Run `timeout 20 pi-star --print` for quick liveliness checks.
-Full interactive use via `pi-star` (no --print, no pipe).
-Run `pi-star` for interactive TUI sessions.
+Full interactive: `pi-star` (no --print).
 ```
 
 
@@ -83,7 +67,7 @@ The breakdown was formulated by: identifying the user's unique contributions (ph
 
 - **Repo**: https://github.com/B67687/pi-star
 - **Branch**: main
-- **Last commit**: `2dcf00a1 docs: update HANDOVER — 10 extensions, web-tools verified, rendering research, safety gaps, startup cycle fix needed`
+- **Last commit**: `e64891ff feat: add tool-registry (/tools, /commands) and question-tool (ask-user LLM tool)`
 - **Binary**: `pi-star` installed globally (~/.nvm/.../bin/pi-star)
 - **Upstream**: badlogic/pi-mono (set as `upstream` remote)
 
@@ -93,7 +77,7 @@ Pi-Star is a fork of [Pi](https://github.com/badlogic/pi-mono) v0.74.0 with:
 - Packages renamed to `@b67687/pi-star-*` namespace
 - Binary renamed from `pi` to `pi-star`
 - Extension loader aliases added for `@b67687/pi-star-*`
-- 6 extensions built and installed globally (vs stock 0)
+- 12 extensions built and installed (via `settings.json` + `.pi/extensions/`) vs stock 0
 - 9Router provider configured (vs stock Google-only)
 
 ## What's Been Built
@@ -291,10 +275,8 @@ Every repo under `~/projects/dev/` has these configs:
 2. **ShellCheck SC2086 level**: SC2086 is "info" not "error" in ShellCheck. LSP parser only reports errors (deliberate).
 3. **Pre-existing TypeScript errors**: `packages/ai/test/` files have type errors in grok model usage. **FIXED** in `49cf9f05` — added missing grok-3 model entries to `models.generated.ts` and fixed `|` bitwise-OR misuse in 6 test files.
 4. **`--print` mode hides tool output**: When agent calls a tool in `--print` mode, the user sees only the final text, not intermediate tool calls. This is a pi-star design limitation — TUI mode shows tool calls.
-5. **No tool registry**: There's no `/tools` command or equivalent for the agent to list available tools. Agent discovers tools from system prompt guidance only.
-6. **No LaTeX rendering**: TUI markdown renderer uses `marked` library (headings, bold, italic, code blocks, tables, lists, blockquotes, links, images). LaTeX math (`$...$`, `$$...$$`) is NOT supported — displays as raw text.
-7. **No LLM-callable question tool**: `ctx.ui.confirm`/`ctx.ui.select` exist for TUI mode, but there's no tool the agent can call to ask the user a question inline.
-8. **First `cargo check` is slow**: Full build takes 30-120s. Incremental builds <0.1s. LSP uses 60s timeout with graceful degradation.
+5. **No LaTeX rendering**: TUI markdown renderer uses `marked` library (headings, bold, italic, code blocks, tables, lists, blockquotes, links, images). LaTeX math (`$...$`, `$$...$$`) is NOT supported — displays as raw text.
+6. **First `cargo check` is slow**: Full build takes 30-120s. Incremental builds <0.1s. LSP uses 60s timeout with graceful degradation.
 
 ## Safety Guard Gaps (workflow-guard.ts)
 
@@ -304,14 +286,16 @@ Current blocked bash patterns:
 Protected write paths:
 - `.git/`, `node_modules/`, `.env`, `auth.json`, `id_*`, `*.pem`, `*.key`
 
-**Missing patterns to add** (identified but not yet fixed):
+**Missing patterns — ALL FIXED** (committed `130c04c5`):
 - `git push --force` / `git push --force-with-lease` — destroys remote history
-- `git branch -D` — force delete branches (git-safe uses safe `-d`)
+- `git branch -D` — force delete branches
 - `find ... -delete` — mass recursive file deletion
 - `docker system prune -af`, `docker volume rm` — destroys Docker state
 - Protected paths: `.ssh/`, `.gitconfig`, `.git-credentials`, `package-lock.json`, `Cargo.lock`
 
-## Extension Suite (10 Active + 4 Agents)
+Also fixed: regex `\b` word-boundary bug before `-` (hyphen is non-word, patterns weren't matching). `git branch -D` vs `-d` handled case-sensitively. `.envrc` no longer falsely blocked.
+
+## Extension Suite (12 Active + 4 Agents)
 
 All auto-discovered from `.pi/extensions/`:
 > **Note**: Global copies in `~/.pi/agent/extensions/` were removed to avoid
@@ -319,7 +303,10 @@ All auto-discovered from `.pi/extensions/`:
 
 | Extension | Lines | What |
 |-----------|-------|------|
-| `web-tools.ts` | ~415 | **NEW** fetch-url + search-web tools, DuckDuckGo default, configurable endpoint |
+| `tool-registry.ts` | ~90 | **NEW** `/tools` and `/commands` — list all available LLM tools and slash commands |
+| `question-tool.ts` | ~185 | **NEW** `ask-user` LLM tool — confirm/select/input, works in TUI and --print |
+| `web-tools.ts` | ~415 | fetch-url + search-web tools, DuckDuckGo default, configurable endpoint |
+| `subagent-layer.ts` | ~470 | Layer 5: subagent dispatch (single/parallel/chain), sandbox execution |
 | `subagent-layer.ts` | ~470 | Layer 5: subagent dispatch (single/parallel/chain), sandbox execution |
 | `memory-layer.ts` | ~450 | Layer 4: session-search tool, /remember, /recall, auto-extraction |
 | `governance-layer.ts` | ~420 | Layer 3: phase gates, constitution checks, propagation sync |
@@ -351,7 +338,7 @@ All auto-discovered from `.pi/extensions/`:
 | G3.2 | ⬜ | Move agentic-workflows dev into pi-star |
 | G3.3 | ✅→**⏳ ACTIVE** | Use pi-star to build pi-star — 8 commits this session |
 | G4 (all) | ⬜ | Self-improvement loop |
-| **G1.0 — startup cycle** | **⚠️ NEEDS FIX** | Governance phase commands are TUI-only. No automatic methodology enforcement in --print mode. The agent must be steered into research→plan→implement→verify cycle. The next session should fix this first. |
+| **G1.0 — startup cycle** | ✅ FIXED | Governance: `set-phase` tool, auto-detect initial phase, block edits in wrong phases |
 
 ## Architecture — Complete
 
@@ -364,7 +351,7 @@ Pi core (<500 tokens system prompt)
 └── Layer 5: Sub-agents (subagent-layer + 4 agents)                ✅
 ```
 
-All 5 architecture layers are now implemented.
+All 5 architecture layers are now implemented. Extra: `tool-registry` (utility) and `question-tool` (interaction).
 
 ## Commands to Continue
 
@@ -401,27 +388,19 @@ Place the following prompt at the top of the next session:
 ```
 Read ~/projects/dev/pi-star/HANDOVER.md for complete context before responding.
 
-Current state: Pi-Star with 10 extensions live (all 5 architecture layers).
+Current state: Pi-Star with 12 extensions live (all 5 architecture layers + 2 utilities).
 All pushed to origin/main. G1.2 — daily use — is the active goal.
 
-The next session should follow this priority order:
+The next session should:
 
-1. FIRST: Fix startup-cycle workflow enforcement. The governance /phase
-   commands are TUI-only. The agent doesn't automatically follow the
-   research→plan→implement→verify cycle in --print mode.
+1. **USE PI-STAR for real daily work** in agentic-workflows (extension dev, methodology improvements). Surface all remaining pain points.
+2. **Update HANDOVER.md** each session to track issues found.
 
-2. THEN: Run full cycle for safety guard improvements. Add missing patterns
-   to workflow-guard.ts (git push --force, git branch -D, find -delete,
-   docker prune, plus protected paths).
-
-3. THEN: Build tool registry (/tools command) so the agent can list what
-   tools and commands are available.
-
-4. THEN: Address questioning gap — build an LLM-callable tool for asking
-   the user questions inline.
-
-5. FINALLY: Use pi-star for real daily work and surface all remaining
-   pain points.
+**Recently completed (this session):**
+- ✅ Startup-cycle enforcement: `set-phase` LLM tool, auto-detect phase, block edits in wrong phases
+- ✅ Safety guards: `git push --force`, `git branch -D`, `find -delete`, docker prune, protected paths
+- ✅ Tool registry: `/tools` and `/commands` commands
+- ✅ Question tool: `ask-user` LLM tool for inline questions
 
 Rendering research is already done: pi-star TUI uses `marked` library with
 full markdown support. LaTeX math ($...$) is NOT supported — raw text only.

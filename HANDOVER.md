@@ -83,7 +83,7 @@ The breakdown was formulated by: identifying the user's unique contributions (ph
 
 - **Repo**: https://github.com/B67687/pi-star
 - **Branch**: main
-- **Last commit**: `0858a8a5 feat(git-safe): add prune operation + auto-prune merged branches on session start`
+- **Last commit**: `2dcf00a1 docs: update HANDOVER — 10 extensions, web-tools verified, rendering research, safety gaps, startup cycle fix needed`
 - **Binary**: `pi-star` installed globally (~/.nvm/.../bin/pi-star)
 - **Upstream**: badlogic/pi-mono (set as `upstream` remote)
 
@@ -401,8 +401,32 @@ Place the following prompt at the top of the next session:
 ```
 Read ~/projects/dev/pi-star/HANDOVER.md for complete context before responding.
 
-Current state: Pi-Star fork with 6 extensions live (LSP for 5 languages, cost-router,
-sequential-thinking MCP, git-safe with prune). 9Router provider configured. 
-All 3 experiments complete. G1.2 — daily use — is the active goal.
-The next session should use pi-star for real work and surface pain points.
+Current state: Pi-Star with 10 extensions live (all 5 architecture layers).
+All pushed to origin/main. G1.2 — daily use — is the active goal.
+
+The next session should follow this priority order:
+
+1. FIRST: Fix startup-cycle workflow enforcement. The governance /phase
+   commands are TUI-only. The agent doesn't automatically follow the
+   research→plan→implement→verify cycle in --print mode.
+
+2. THEN: Run full cycle for safety guard improvements. Add missing patterns
+   to workflow-guard.ts (git push --force, git branch -D, find -delete,
+   docker prune, plus protected paths).
+
+3. THEN: Build tool registry (/tools command) so the agent can list what
+   tools and commands are available.
+
+4. THEN: Address questioning gap — build an LLM-callable tool for asking
+   the user questions inline.
+
+5. FINALLY: Use pi-star for real daily work and surface all remaining
+   pain points.
+
+Rendering research is already done: pi-star TUI uses `marked` library with
+full markdown support. LaTeX math ($...$) is NOT supported — raw text only.
+Address if it comes up but not urgent.
+
+Run `timeout 20 pi-star --print` for quick liveliness checks.
+Full interactive: `pi-star` (no --print).
 ```

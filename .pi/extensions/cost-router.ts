@@ -48,6 +48,19 @@ The cost difference is ~35x between pro and flash. Use research mode generously 
 export default function costRouterExtension(pi: ExtensionAPI) {
 	let currentMode: RouteMode = "code";
 
+	// ── Helpers ──
+
+	function notify(ctx: ExtensionCommandContext, msg: string, level: "info" | "warning" | "error" = "info"): void {
+		if ((ctx as any).ui?.notify) {
+			(ctx as any).ui.notify(msg, level);
+		}
+		if (level === "error") {
+			console.error(`[cost-router] ${msg}`);
+		} else {
+			console.log(`[cost-router] ${msg}`);
+		}
+	}
+
 	// ── Commands ──
 
 	pi.registerCommand("route", {
@@ -59,12 +72,12 @@ export default function costRouterExtension(pi: ExtensionAPI) {
 			if (!modeArg) {
 				const config = ROUTE_CONFIG[currentMode];
 				const msg = `Current route: ${currentMode} (${config.model})\n${config.description}\n\nUse /route code or /route research to switch.`;
-				ctx.ui.notify(msg, "info");
+				notify(ctx, msg, "info");
 				return;
 			}
 
 			if (modeArg !== "code" && modeArg !== "research") {
-				ctx.ui.notify(`Unknown route: ${modeArg}. Use "code" or "research".`, "warning");
+				notify(ctx, `Unknown route: ${modeArg}. Use "code" or "research".`, "warning");
 				return;
 			}
 
@@ -72,7 +85,7 @@ export default function costRouterExtension(pi: ExtensionAPI) {
 			const config = ROUTE_CONFIG[currentMode];
 
 			// Notify the user
-			ctx.ui.notify(`Switched to ${currentMode} mode (${config.model})`, "info");
+			notify(ctx, `Switched to ${currentMode} mode (${config.model})`, "info");
 
 			// Send a steer message telling the agent to switch model
 			// The agent will see this instruction and use /model to switch
@@ -85,7 +98,7 @@ export default function costRouterExtension(pi: ExtensionAPI) {
 		description: "Switch to code (pro) routing mode",
 		handler: async (ctx: ExtensionCommandContext) => {
 			currentMode = "code";
-			ctx.ui.notify(`Switched to code mode (${ROUTE_CONFIG.code.model})`, "info");
+			notify(ctx, `Switched to code mode (${ROUTE_CONFIG.code.model})`, "info");
 		},
 	});
 
@@ -93,7 +106,7 @@ export default function costRouterExtension(pi: ExtensionAPI) {
 		description: "Switch to research (flash) routing mode",
 		handler: async (ctx: ExtensionCommandContext) => {
 			currentMode = "research";
-			ctx.ui.notify(`Switched to research mode (${ROUTE_CONFIG.research.model})`, "info");
+			notify(ctx, `Switched to research mode (${ROUTE_CONFIG.research.model})`, "info");
 		},
 	});
 

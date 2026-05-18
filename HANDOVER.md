@@ -249,7 +249,7 @@ Every repo under `~/projects/dev/` has these configs:
 5. **Pre-existing tsc integration test failure**: Not related to our changes. Test file doesn't trigger type error with project's tsconfig.
 6. **First `cargo check` is slow**: Full build takes 30-120s. Incremental builds <0.1s. LSP uses 60s timeout with graceful degradation.
 
-## Extension Suite (7 Active)
+## Extension Suite (8 Active)
 
 All auto-discovered from `.pi/extensions/`:
 > **Note**: Global copies in `~/.pi/agent/extensions/` were removed to avoid
@@ -257,7 +257,8 @@ All auto-discovered from `.pi/extensions/`:
 
 | Extension | Lines | What |
 |-----------|-------|------|
-| `governance-layer.ts` | ~420 | **NEW** Layer 3: phase gates, constitution checks, propagation sync |
+| `memory-layer.ts` | ~450 | **NEW** Layer 4: session-search tool, /remember, /recall, auto-extraction |
+| `governance-layer.ts` | ~420 | Layer 3: phase gates, constitution checks, propagation sync |
 | `lean-lsp.ts` | ~230 | LSP for Python/TS/Shell/Go/Rust — errors-only, <800 tokens |
 | `cost-router.ts` | ~120 | `/route code` → pro, `/route research` → flash |
 | `sequential-thinking.ts` | ~320 | MCP structured reasoning tool (via server subprocess) |
@@ -275,7 +276,9 @@ All auto-discovered from `.pi/extensions/`:
 | G2 (all) | ✅ | All 3 experiments + extensions shipped |
 | G3.1 | ⬜ | Feature parity audit |
 | G3.2 | ⬜ | Move agentic-workflows dev into pi-star |
-| G3.3 | **✅→⏳ ACTIVE** | Use pi-star to build pi-star — started with governance layer |
+| G3.3 | **✅→⏳ ACTIVE** | Use pi-star to build pi-star — governance + memory layers built |
+| G4.1 | ⬜ | Cost low enough for recursive self-improvement |
+| G4.2 | ⬜ | Harness identifies its own gaps |
 
 ## Commands to Continue
 

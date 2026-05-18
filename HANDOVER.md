@@ -15,10 +15,10 @@ architecture. Goal: strengthen both until Pi-Star can self-iterate, then shift.
 
 | Repo | Branch | Last Commit |
 |------|--------|-------------|
-| agentic-workflows | main | a322b4e feat: add determinism-framework.md — classify all gates and workflow steps |
-| pi-star | main | 0926fb7d docs: add determinism framework to methodology guide |
+| agentic-workflows | main | b6b93a0 feat: add auto-handover workflow — generate-handover.sh + handover.yaml |
+| pi-star | main | 43d6022a handover: auto-generate for 2026-05-18 session |
 
-Changes: 13 modified, 12 untracked
+Changes: 12 modified, 10 untracked
 
   Workflow: implement  Step: decomposition_check  Trace: 3 entries
 
@@ -60,11 +60,31 @@ bash scripts/goal-tree.sh branch <parent> "<title>"  # start new work
 ## Recent Commits
 
 ```
+  b6b93a0 feat: add auto-handover workflow — generate-handover.sh + handover.yaml
   a322b4e feat: add determinism-framework.md — classify all gates and workflow steps
   8d4e032 feat: add goal-tree.sh — persistent hierarchical goal tracking
   a2fbef7 feat: add workflow-check — deterministic verification of workflow-state.json
   208189d feat: add decomposition enforcement gate — milestone ladder before implementation
-  0a916e1 feat: parallel step kind for workflow — research fan-out + verify checks (#18)
+```
+
+## Entry Prompt
+
+Copy this block to the top of the next session:
+
+```
+Read HANDOVER.md for complete context before responding.
+
+Current state: 6 meso goals done, 5 active. Active: Pi-Star Mastery — best agent harness via research-backed architecture
+
+All pushed to origin/main.
+
+The next session follows the research→plan→implement→verify cycle.
+Browse the goal tree and branch into the next item:
+
+  bash scripts/goal-tree.sh current   # active path
+  bash scripts/goal-tree.sh status    # full tree
+  bash scripts/goal-tree.sh branch <parent> "<title>"  # start new work
+  bash scripts/workflow-check.sh      # validate state
 ```
 <!-- session-data:end -->
 

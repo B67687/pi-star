@@ -15,36 +15,30 @@ architecture. Goal: strengthen both until Pi-Star can self-iterate, then shift.
 
 | Repo | Branch | Last Commit |
 |------|--------|-------------|
-| agentic-workflows | main | b6b93a0 feat: add auto-handover workflow — generate-handover.sh + handover.yaml |
-| pi-star | main | 43d6022a handover: auto-generate for 2026-05-18 session |
+| agentic-workflows | main | de5976b fix: gate exit code swallowing + session-start goal tree in compact mode |
+| pi-star | main | 37085a5a handover: regenerate with entry prompt for 2026-05-18 |
 
-Changes: 12 modified, 10 untracked
+Changes: 10 modified, 10 untracked
 
-  Workflow: implement  Step: decomposition_check  Trace: 3 entries
+  Workflow: none  Step: none  Trace: 0 entries
 
 ## Goal Tree
 
 ```
 → ○ Pi-Star Mastery — best agent harness via research-backed architecture
-  ✓   Goal Tree System — persistent goal tracking (done) [d:1]
-  ✓     Create goal-tree.sh script (done) [d:2]
-  ✓     Session-start hook integration (done) [d:2]
-  ✓     HANDOVER 200-line restructure (done) [d:2]
-  ✓     Port to Pi-Star (done) [d:2]
-  ○   Code Quality — first-time-correct + reiteration [d:1]
-  ○   Change Visibility — TUI diffs, see agent actions [d:1]
-  ○   Reliability — reload-agents, pre-commit gates, maintenance [d:1]
-  ○   Daily Use — real-world hardening, pain points [d:1]
-  ✓   Determinism Framework — classify auto vs deliberate (done) [d:1]
+  ✓   Goal Tree System (done) [d:1]
+  ✓   Determinism Framework (done) [d:1]
+  ○   Code Quality [d:1]
+  ○   Change Visibility [d:1]
+  ○   Reliability [d:1]
+  ○   Daily Use [d:1]
 
   Path: Pi-Star Mastery — best agent harness via research-backed arc
 ```
 
 ## Last Session Summary
 
-- current_state: Repo mapped: 859 .md, 772 .json, 288 .sh, 20 .yaml workflow files
-- design_discussion: Consensus reached: JSON+shell, 8-level max (warn 4+), 200-line HANDOVER
-- structure_outline: Structure approved: schema, operations, depth policy, HANDOVER role
+(no trace entries)
 
 ## Next
 
@@ -60,11 +54,11 @@ bash scripts/goal-tree.sh branch <parent> "<title>"  # start new work
 ## Recent Commits
 
 ```
+  de5976b fix: gate exit code swallowing + session-start goal tree in compact mode
+  ad3a288 feat: add Entry Prompt to handover generator
   b6b93a0 feat: add auto-handover workflow — generate-handover.sh + handover.yaml
   a322b4e feat: add determinism-framework.md — classify all gates and workflow steps
   8d4e032 feat: add goal-tree.sh — persistent hierarchical goal tracking
-  a2fbef7 feat: add workflow-check — deterministic verification of workflow-state.json
-  208189d feat: add decomposition enforcement gate — milestone ladder before implementation
 ```
 
 ## Entry Prompt
@@ -74,7 +68,7 @@ Copy this block to the top of the next session:
 ```
 Read HANDOVER.md for complete context before responding.
 
-Current state: 6 meso goals done, 5 active. Active: Pi-Star Mastery — best agent harness via research-backed architecture
+Current state: 2 meso goals done, 5 active. Active: Pi-Star Mastery — best agent harness via research-backed architecture
 
 All pushed to origin/main.
 

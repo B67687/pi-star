@@ -667,6 +667,109 @@ export default function governanceLayerExtension(pi: ExtensionAPI) {
 		},
 	});
 
+	// ── Workflow state check ──
+
+	function checkWorkflowState(ctx: ExtensionCommandContext): void {
+		const results: string[] = [];
+		let errors = 0;
+		let warnings = 0;
+
+		// Check state file exists
+		if (!existsSync(STATE_FILE)) {
+			notify(ctx, "❌ governance-state.json not found", "error");
+			return;
+		}
+		results.push("  ✅ State file exists");
+
+		// Check valid JSON
+		try {
+			const raw = readFileSync(STATE_FILE, "utf-8");
+			JSON.parse(raw);
+			results.push("  ✅ Valid JSON");
+		} catch {
+			notify(ctx, "❌ governance-state.json is not valid JSON", "error");
+			return;
+		}
+
+		// Load and validate state
+		const st = loadState();
+
+		// Check current phase
+		const validPhases: Phase[] = ["none", "research", "plan", "implement", "verify"];
+		if (!validPhases.includes(st.currentPhase)) {
+			results.push(`  ❌ Invalid phase: "${st.currentPhase}"`);
+			errors++;
+		} else {
+			results.push(`  ✅ Current phase: ${st.currentPhase}`);
+		}
+
+		// Check history
+		if (st.history.length === 0) {
+			results.push("  ⚠ No phase history recorded");
+			warnings++;
+		} else {
+			results.push(`  ✅ History: ${st.history.length} entries`);
+
+			// Check phase ordering
+			const expectedOrder: Phase[] = ["research", "plan", "implement", "verify"];
+			let orderOk = true;
+			const actualOrder = st.history
+				.filter((e) => expectedOrder.includes(e.phase))
+				.map((e) => e.phase);
+
+			for (let i = 1; i < actualOrder.length; i++) {
+				const prevIdx = expectedOrder.indexOf(actualOrder[i - 1]);
+				const currIdx = expectedOrder.indexOf(actualOrder[i]);
+				if (currIdx < prevIdx) {
+					results.push(`  ⚠ Phase order anomaly: ${actualOrder[i - 1]} → ${actualOrder[i]}`);
+					warnings++;
+					orderOk = false;
+					break;
+				}
+			}
+			if (orderOk) {
+				results.push("  ✅ Phase transitions follow research→plan→implement→verify order");
+			}
+
+			// Check for entries without timestamps
+			const noTs = st.history.filter((e) => !e.timestamp).length;
+			if (noTs > 0) {
+				results.push(`  ⚠ ${noTs} history entr(ies) missing timestamps`);
+				warnings++;
+			}
+
+			// Check for the most recent entry
+			const lastEntry = st.history[st.history.length - 1];
+			const age = Date.now() - lastEntry.timestamp;
+			const ageHours = Math.floor(age / 3600000);
+			if (ageHours > 24) {
+				results.push(`  ⚠ Last phase change was ${ageHours}h ago — state may be stale`);
+				warnings++;
+			}
+		}
+
+		// Check constitution results
+		const articleCount = Object.keys(st.constitutionResults).length;
+		if (articleCount > 0) {
+			const passed = Object.values(st.constitutionResults).filter(Boolean).length;
+			results.push(`  ✅ Constitution: ${passed}/${articleCount} articles passed`);
+		}
+
+		// Summary
+		results.push("");
+		results.push(`  Summary: ${errors} error(s), ${warnings} warning(s)`);
+		const level = errors > 0 ? "error" : warnings > 0 ? "warning" : "info";
+		notify(ctx, results.join("\n"), level);
+	}
+
+	pi.registerCommand("workflow-check", {
+		description:
+			"Validate governance-state.json for structural integrity and consistency. Usage: /workflow-check",
+		handler: async (ctx: ExtensionCommandContext) => {
+			checkWorkflowState(ctx);
+		},
+	});
+
 	pi.registerCommand("propagation", {
 		description: "Check methodology file drift with agentic-workflows",
 		handler: async (ctx: ExtensionCommandContext) => {

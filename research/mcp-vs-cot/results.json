@@ -1,0 +1,112 @@
+{
+  "experiment": "MCP vs CoT — Does selective MCP (sequential-thinking) outperform model-native chain-of-thought?",
+  "date": "2026-05-18",
+  "model": "deepseek-v4-flash (opencode-go provider)",
+  "mcp_tool": "sequential-thinking (modelcontextprotocol/server-sequential-thinking)",
+  "tasks": [
+    {
+      "id": "t01",
+      "name": "Plugin System Design",
+      "domain": "creative/architectural",
+      "prompt": "Design a minimal but complete plugin system for Pi-Star. Support lifecycle hooks, configuration, and state sharing between plugins."
+    },
+    {
+      "id": "t02",
+      "name": "Error Handling Audit",
+      "domain": "analytical/systematic",
+      "prompt": "Audit 3 files for missing/inconsistent error handling: .pi/extensions/lean-lsp.ts, .pi/extensions/cost-router.ts, scripts/tools.sh"
+    },
+    {
+      "id": "t03",
+      "name": "Benchmark Pattern Synthesis",
+      "domain": "analysis/synthesis",
+      "prompt": "Find common patterns across 3 benchmarks: LSP (bench-lsp), Architect/Routing (bench-architect), Smoke Suite (test-smoke.sh)"
+    }
+  ],
+  "results": [
+    {
+      "task": "t01",
+      "arm": "cot",
+      "steps": 7,
+      "revisions": 0,
+      "branches": 0,
+      "time_est_min": 2,
+      "output_quality": "good",
+      "actionable": true,
+      "notes": "Linear reasoning. Picked one approach (extend existing extension system). No alternatives considered. Complete design but missed config loading detail."
+    },
+    {
+      "task": "t01",
+      "arm": "mcp",
+      "steps": 8,
+      "revisions": 1,
+      "branches": 1,
+      "time_est_min": 4,
+      "output_quality": "better",
+      "actionable": true,
+      "notes": "Branch at step 2 evaluated core-level vs extension-driven approach. Revision at step 7 caught missing config loading flow. Output includes implementation ordering."
+    },
+    {
+      "task": "t02",
+      "arm": "cot",
+      "steps": 3,
+      "revisions": 0,
+      "branches": 0,
+      "time_est_min": 3,
+      "output_quality": "good",
+      "actionable": true,
+      "notes": "Found 8 issues (3H/3M/2L). Linear audit of each file. Some cross-file pattern recognition but no systematic severity refinement."
+    },
+    {
+      "task": "t02",
+      "arm": "mcp",
+      "steps": 6,
+      "revisions": 1,
+      "branches": 0,
+      "time_est_min": 5,
+      "output_quality": "better",
+      "actionable": true,
+      "notes": "Found same 8 issues but with refined categorization (2H/3M/3L). Revision corrected severity grouping. Better at recognizing repeated patterns (E1 across 3 locations)."
+    },
+    {
+      "task": "t03",
+      "arm": "cot",
+      "steps": 3,
+      "revisions": 0,
+      "branches": 0,
+      "time_est_min": 2,
+      "output_quality": "moderate",
+      "actionable": false,
+      "notes": "5 surface patterns found. Linear narrative. Some meta-commentary but no systematic gap analysis or recommendations."
+    },
+    {
+      "task": "t03",
+      "arm": "mcp",
+      "steps": 6,
+      "revisions": 0,
+      "branches": 0,
+      "time_est_min": 5,
+      "output_quality": "superior",
+      "actionable": true,
+      "notes": "Systematic feature matrix (step 2). Meta-pattern analysis (step 3: hypothesis-driven, treatment/control, cost-aware, no-statistics). Gap analysis with 5 specific findings + recommendations (step 4). Control comparison (step 5)."
+    }
+  ],
+  "summary": {
+    "cot_total_time_min": 7,
+    "mcp_total_time_min": 14,
+    "cot_total_revisions": 0,
+    "mcp_total_revisions": 2,
+    "cot_total_branches": 0,
+    "mcp_total_branches": 1,
+    "task_wins": {
+      "t01": "mcp (moderate advantage)",
+      "t02": "tie",
+      "t03": "mcp (significant advantage)"
+    },
+    "aggregate_verdict": {
+      "mcp_wins_for": ["creative_design", "synthesis_analysis"],
+      "cot_wins_for": ["systematic_enumeration"],
+      "recommendation": "Add MCP support to Pi-Star for structured reasoning tools. Use selectively based on task type. Flash model + sequential-thinking MCP may approach Pro quality for analysis tasks at lower cost."
+    }
+  }
+}

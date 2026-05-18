@@ -1,7 +1,38 @@
-# Pi-Star Session Handover — 2026-05-18
+# Pi-Star Session Handover — 2026-05-18 (Session End)
 
 ## Next Session Entry Prompt
 
+```
+Read ~/projects/dev/pi-star/HANDOVER.md for complete context before responding.
+
+Current state: Pi-Star with 12 extensions live (all 5 architecture layers + 2 utilities).
+All pushed to origin/main. G1.2 — daily use — is the active goal.
+
+The next session should follow this priority order, with a
+research→plan→implement→verify cycle for each item, starting with
+OpenCode (current harness) then porting patterns to Pi-Star:
+
+1. DECOMPOSITION ENFORCEMENT (B) — Research best practices for requiring
+   problem decomposition before implementation. Then implement a gate in
+   OpenCode workflows that requires a milestone ladder before allowing
+   the implement phase. Then port the pattern to Pi-Star's set-phase tool.
+
+2. WORKFLOW SELF-CHECK (A) — Build a deterministic verification tool for
+   OpenCode (validate workflow-state.json trace). Then port the concept
+   to Pi-Star (/workflow-check command).
+
+3. INTEGRATION TESTS (C) — Design and build a pi-star dry-run test suite.
+   Lower priority.
+
+4. DAILY USE + PAIN POINTS — Alongside the above, use pi-star for one
+   real task per session and log issues found.
+
+Strategic context: OpenCode is the current harness. Harden it →
+transfer patterns → strengthen Pi-Star → shift over.
+Concepts designed in OpenCode first, then adapted to Pi-Star.
+
+Run `timeout 20 pi-star --print` for quick liveliness checks.
+Full interactive: `pi-star` (no --print).
 ```
 Read HANDOVER.md for complete context before responding.
 
@@ -391,19 +422,36 @@ Read ~/projects/dev/pi-star/HANDOVER.md for complete context before responding.
 Current state: Pi-Star with 12 extensions live (all 5 architecture layers + 2 utilities).
 All pushed to origin/main. G1.2 — daily use — is the active goal.
 
-The next session should:
+The next session should follow this priority order, with a **research→plan→implement→verify**
+cycle for each item, starting with OpenCode (current harness) then porting patterns to Pi-Star:
 
-1. **USE PI-STAR for real daily work** in agentic-workflows (extension dev, methodology improvements). Surface all remaining pain points.
-2. **Update HANDOVER.md** each session to track issues found.
+1. **DECOMPOSITION ENFORCEMENT (B)** — Research best practices for requiring problem
+   decomposition before implementation. Then implement a gate in OpenCode workflows that
+   requires a milestone ladder before allowing the implement phase. Then port the pattern
+   to Pi-Star's set-phase tool (plan→implement transition checks for decomposition artifact).
 
-**Recently completed (this session):**
+2. **WORKFLOW SELF-CHECK (A)** — Build a deterministic verification tool for OpenCode
+   (validate workflow-state.json trace). Then port the concept to Pi-Star
+   (/workflow-check command that validates governance-state.json history).
+
+3. **INTEGRATION TESTS (C)** — Design and build a pi-star dry-run test suite. Lower priority.
+
+4. **DAILY USE + PAIN POINTS** — Alongside the above, use pi-star for one real task per
+   session and log issues found.
+
+**Recently completed (2026-05-18 session):**
 - ✅ Startup-cycle enforcement: `set-phase` LLM tool, auto-detect phase, block edits in wrong phases
 - ✅ Safety guards: `git push --force`, `git branch -D`, `find -delete`, docker prune, protected paths
 - ✅ Tool registry: `/tools` and `/commands` commands
 - ✅ Question tool: `ask-user` LLM tool for inline questions
 
-Rendering research is already done: pi-star TUI uses `marked` library with
-full markdown support. LaTeX math ($...$) is NOT supported — raw text only.
+**Strategic context:** OpenCode (agentic-workflows) is the current development harness. The
+goal is to strengthen it enough to efficiently build Pi-Star, then strengthen Pi-Star until
+it can self-iterate, then shift over entirely. Concepts are designed in OpenCode first,
+then adapted to Pi-Star's extension architecture.
+
+Rendering research is done: pi-star TUI uses `marked` library with full
+markdown support. LaTeX math ($...$) is NOT supported — raw text only.
 Address if it comes up but not urgent.
 
 Run `timeout 20 pi-star --print` for quick liveliness checks.
